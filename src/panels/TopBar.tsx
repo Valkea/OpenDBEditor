@@ -79,6 +79,8 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
   const busy = useStore((s) => s.layoutBusy);
   const direction = useStore((s) => s.direction);
   const arrangeMode = useStore((s) => s.arrangeMode);
+  // arranging by group tries several orientations and keeps the cleanest, so the direction has no say
+  const directionIgnored = arrangeMode === 'groups' && schema.groups.length > 0;
   const st = useStore.getState;
   const rf = useReactFlow();
 
@@ -129,7 +131,11 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
             >
               {arrangeMode === 'groups' ? <Boxes size={14} /> : <Workflow size={14} />}
             </button>
-            <button className="tb-btn tb-mini" title={`Direction: ${direction === 'RIGHT' ? 'left → right' : 'top → bottom'}`} onClick={() => st().set({ direction: direction === 'RIGHT' ? 'DOWN' : 'RIGHT' })}>
+            <button
+              className="tb-btn tb-mini"
+              disabled={directionIgnored}
+              title={directionIgnored ? 'Direction: only used when arranging by dependency' : `Direction: ${direction === 'RIGHT' ? 'left → right' : 'top → bottom'}`}
+              onClick={() => st().set({ direction: direction === 'RIGHT' ? 'DOWN' : 'RIGHT' })}>
               {direction === 'RIGHT' ? '→' : '↓'}
             </button>
           </div>
