@@ -1,0 +1,76 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+import { parseSql } from '../src/sql/parser';
+import { suggestGroups } from '../src/layout/cluster';
+import { autoLayout, autoLayoutDetailed, type Strategy } from '../src/layout/auto';
+import { CARD_W, cardHeight, countCrossings } from '../src/layout/geometry';
+import type { Schema } from '../src/model/types';
+
+const V15 = '/Users/z943bm/Dev/genai-dataset-sync-tool/docs/schema-v15.sql';
+
+function grouped(): Schema {
+  const s = parseSql(readFileSync(V15, 'utf8')).schema;
+  const g = suggestGroups(s);
+  s.groups = g.groups;
+  for (const t of s.tables) t.groupId = g.assignment.get(t.id);
+  return s;
+}
+
+function apply(s: Schema, pos: Map<string, { x: number; y: number }>) {
+  for (const t of s.tables) Object.assign(t, pos.get(t.id));
+}
+
+function overlaps(s: Schema): number {
+  let n = 0;
+  for (let i = 0; i < s.tables.length; i++)
+    for (let j = i + 1; j < s.tables.length; j++) {
+      const a = s.tables[i];
+      const b = s.tables[j];
+      if (a.x < b.x + CARD_W && b.x < a.x + CARD_W && a.y < b.y + cardHeight(b, s) && b.y < a.y + cardHeight(a, s)) n++;
+    }
+  return n;
+}
+
+const bounds = (s: Schema) => {
+  const xs = s.tables.map((t) => t.x);
+  const ys = s.tables.map((t) => t.y);
+  const w = Math.max(...xs) + CARD_W - Math.min(...xs);
+  const h = Math.max(...s.tables.map((t) => t.y + cardHeight(t, s))) - Math.min(...ys);
+  return { w, h };
+};
+
+describe.runIf(existsSync(V15))('auto-layout on schema-v15', () => {
+  it('compares strategies', async () => {
+    for (const only of ['compound', 'islands-down', 'islands-right', 'islands-stress'] as Strategy[]) {
+      const s = grouped();
+      const r = await autoLayoutDetailed(s, { direction: 'RIGHT', only });
+      apply(s, r.pos);
+      const b = bounds(s);
+      console.log(only.padEnd(15), 'crossings', String(r.crossings).padStart(3), 'size', Math.round(b.w), 'x', Math.round(b.h), 'overlaps', overlaps(s));
+    }
+  });
+
+  it('produces a non-overlapping, reasonably square layout', async () => {
+    const s = grouped();
+    const r = await autoLayoutDetailed(s, { direction: 'RIGHT' });
+    apply(s, r.pos);
+    const b = bounds(s);
+    console.log('picked', r.strategy);
+    console.log('groups', s.groups.map((g) => `${g.name}:${s.tables.filter((t) => t.groupId === g.id).length}`).join(' '));
+    console.log('crossings', countCrossings(s), 'size', Math.round(b.w), 'x', Math.round(b.h), 'overlaps', overlaps(s));
+    expect(overlaps(s)).toBe(0);
+  });
+
+  it('keeps locked tables exactly where they are', async () => {
+    const s = grouped();
+    apply(s, await autoLayout(s, { direction: 'RIGHT' }));
+    const t = s.tables.find((x) => x.name === 'outputs')!;
+    t.locked = true;
+    t.x = -2000;
+    t.y = 1500;
+    apply(s, await autoLayout(s, { direction: 'RIGHT' }));
+    expect(t.x).toBe(-2000);
+    expect(t.y).toBe(1500);
+    expect(overlaps(s)).toBe(0);
+  });
+});
