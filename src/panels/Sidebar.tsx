@@ -32,6 +32,7 @@ import { useDiff, useIssues, usePath } from '../store/derived';
 import { newGroupColor, type SidebarTab, useStore } from '../store/store';
 import { copyText, download, pickFile, slug } from '../util/files';
 import { CodeEditor } from './CodeEditor';
+import { IssueRow } from './IssueRow';
 import { useFly } from './useFly';
 
 const TABS: { id: SidebarTab; label: string; icon: typeof Boxes }[] = [
@@ -449,20 +450,7 @@ function HealthTab() {
             </div>
             {isOpen &&
               list.map((i) => (
-                <div key={i.id} className="issue" onClick={() => i.tableId && fly(i.tableId, i.columnId)}>
-                  <span className="grow">{i.message}</span>
-                  {i.fix && (
-                    <button
-                      className="btn sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        commit((d) => i.fix!.apply(d));
-                      }}
-                    >
-                      {i.fix.label}
-                    </button>
-                  )}
-                </div>
+                <IssueRow key={i.id} issue={i} onClick={() => i.tableId && fly(i.tableId, i.columnId)} />
               ))}
           </section>
         );

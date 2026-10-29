@@ -23,6 +23,7 @@ import { useIssues } from '../store/derived';
 import { useStore } from '../store/store';
 import { copyText } from '../util/files';
 import { CodeEditor } from './CodeEditor';
+import { IssueRow } from './IssueRow';
 import { type TypeGroup, TypePicker } from './TypePicker';
 import { useFly } from './useFly';
 
@@ -322,29 +323,16 @@ function TableInspector({ id, columnId }: { id: string; columnId?: string }) {
             </div>
             {showIssues && <section className="rule">
               {issues.map((i) => (
-                <div
+                <IssueRow
                   key={i.id}
-                  className="issue"
+                  issue={i}
+                  dot
                   onClick={() => {
                     if (!i.columnId) return;
                     setOpenCol(i.columnId);
                     listRef.current?.querySelector(`[data-ins-col="${i.columnId}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
                   }}
-                >
-                  <span className={`sev sev-${i.severity}`} />
-                  <span className="grow">{i.message}</span>
-                  {i.fix && (
-                    <button
-                      className="btn sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        commit((d) => i.fix!.apply(d));
-                      }}
-                    >
-                      {i.fix.label}
-                    </button>
-                  )}
-                </div>
+                />
               ))}
             </section>}
           </>
