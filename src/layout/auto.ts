@@ -4,7 +4,8 @@
 
 import type { ElkExtendedEdge, ElkNode, ElkPort } from 'elkjs/lib/elk-api';
 import type { Schema } from '../model/types';
-import { CARD_W, cardHeight, countCrossings, rowCenterY, type Rect } from './geometry';
+import { CARD_W, cardHeight, rowCenterY, type Rect } from './geometry';
+import { routedCrossings } from './routing';
 
 export type Direction = 'RIGHT' | 'DOWN';
 
@@ -38,7 +39,7 @@ const TARGET_ASPECT = 1.7;
 /** Lower is better: crossings dominate, then an elongated or sprawling drawing. */
 function score(schema: Schema, pos: Map<string, Pos>, hidden: Set<string>): { score: number; crossings: number } {
   const probe: Schema = { ...schema, tables: schema.tables.map((t) => ({ ...t, ...pos.get(t.id) })) };
-  const crossings = countCrossings(probe, hidden);
+  const crossings = routedCrossings(probe, hidden);
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, area = 0;
   for (const t of probe.tables) {
     const h = cardHeight(t, schema);

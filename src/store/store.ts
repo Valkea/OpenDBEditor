@@ -11,7 +11,7 @@ import { decodeSchema } from '../share/codec';
 import { diffSchemas } from '../analysis/diff';
 import { autoLayout, type Direction } from '../layout/auto';
 import { suggestGroups } from '../layout/cluster';
-import { countCrossings } from '../layout/geometry';
+import { routedCrossings } from '../layout/routing';
 import { inDegree } from '../analysis/graph';
 
 export type Selection =
@@ -266,10 +266,10 @@ export const useStore = create<State>((set, get) => ({
       }
       const { schema, portals, hubThreshold, direction } = get();
       const hidden = hiddenRelations(schema, portals, hubThreshold);
-      const before = countCrossings(schema, hidden);
+      const before = routedCrossings(schema, hidden);
       const pos = await autoLayout(schema, { direction, hiddenRelations: hidden });
       await get().animateTo(pos);
-      const after = countCrossings(get().schema, hidden);
+      const after = routedCrossings(get().schema, hidden);
       if (schema.tables.some((t) => t.x || t.y)) get().toast(`Auto-layout done · line crossings ${before} → ${after}`);
     } catch (e) {
       console.error(e);

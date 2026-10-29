@@ -1,0 +1,158 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+import { parseSql } from '../src/sql/parser';
+import { suggestGroups } from '../src/layout/cluster';
+import { autoLayout } from '../src/layout/auto';
+import { CARD_W, cardHeight } from '../src/layout/geometry';
+import { routeSchema, regionFrame } from '../src/layout/routing';
+import { routeEdges, type Route } from '../src/layout/router';
+import type { Schema } from '../src/model/types';
+
+const V15 = '/Users/z943bm/Dev/genai-dataset-sync-tool/docs/schema-v15.sql';
+
+type Seg = [number, number, number, number];
+const segsOf = (r: Route): Seg[] => r.points.slice(1).map((p, i) => [r.points[i].x, r.points[i].y, p.x, p.y]);
+
+/** Segments that cut through a card interior (ignoring the line's own end stubs). */
+function cardHits(s: Schema, routes: Map<string, Route>): string[] {
+  const hits: string[] = [];
+  for (const [id, r] of routes) {
+    const segs = segsOf(r);
+    segs.forEach(([x1, y1, x2, y2], k) => {
+      for (const t of s.tables) {
+        const h = cardHeight(t, s);
+        const ax = Math.min(x1, x2), bx = Math.max(x1, x2), ay = Math.min(y1, y2), by = Math.max(y1, y2);
+        if (bx <= t.x + 0.5 || ax >= t.x + CARD_W - 0.5 || by <= t.y + 0.5 || ay >= t.y + h - 0.5) continue;
+        hits.push(`${id}#${k} through ${t.name}`);
+      }
+    });
+  }
+  return hits;
+}
+
+/** Collinear overlapping segments of different nets (lines drawn on top of each other). */
+function overlaps(routes: Map<string, Route>, net: Map<string, string>, log?: (m: string) => void): number {
+  const all: { s: Seg; net: string; id: string; k: number; last: number }[] = [];
+  for (const [id, r] of routes) segsOf(r).forEach((s, k, arr) => all.push({ s, net: net.get(id)!, id, k, last: arr.length - 1 }));
+  let n = 0;
+  for (let i = 0; i < all.length; i++)
+    for (let j = i + 1; j < all.length; j++) {
+      const A = all[i], B = all[j];
+      if (A.net === B.net) continue;
+      const [a1, a2, a3, a4] = A.s, [b1, b2, b3, b4] = B.s;
+      if (a1 === a3 && b1 === b3 && Math.abs(a1 - b1) < 3) {
+        if (Math.min(Math.max(a2, a4), Math.max(b2, b4)) - Math.max(Math.min(a2, a4), Math.min(b2, b4)) > 4) {
+          n++;
+          log?.(`V ${A.id}#${A.k}/${A.last} ${JSON.stringify(A.s)} ~ ${B.id}#${B.k}/${B.last} ${JSON.stringify(B.s)}`);
+        }
+      } else if (a2 === a4 && b2 === b4 && Math.abs(a2 - b2) < 3) {
+        if (Math.min(Math.max(a1, a3), Math.max(b1, b3)) - Math.max(Math.min(a1, a3), Math.min(b1, b3)) > 4) {
+          n++;
+          log?.(`H ${A.id}#${A.k}/${A.last} ${JSON.stringify(A.s)} ~ ${B.id}#${B.k}/${B.last} ${JSON.stringify(B.s)}`);
+        }
+      }
+    }
+  return n;
+}
+
+function toSvg(s: Schema, routes: Map<string, Route>): string {
+  const xs = s.tables.flatMap((t) => [t.x, t.x + CARD_W]);
+  const ys = s.tables.flatMap((t) => [t.y, t.y + cardHeight(t, s)]);
+  const x0 = Math.min(...xs) - 150, y0 = Math.min(...ys) - 150;
+  const w = Math.max(...xs) - x0 + 150, h = Math.max(...ys) - y0 + 150;
+  const parts = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x0} ${y0} ${w} ${h}" width="${w}" height="${h}" style="background:#0b0d12">`];
+  for (const g of s.groups) {
+    const f = regionFrame(s, g.id, 'full');
+    if (f) parts.push(`<rect x="${f.x}" y="${f.y}" width="${f.w}" height="${f.h}" rx="18" fill="${g.color}" fill-opacity=".07" stroke="${g.color}" stroke-opacity=".3"/>`);
+  }
+  for (const t of s.tables) parts.push(`<rect x="${t.x}" y="${t.y}" width="${CARD_W}" height="${cardHeight(t, s)}" rx="8" fill="#161a22" stroke="#2a3040"/><text x="${t.x + 12}" y="${t.y + 28}" fill="#cfd6e4" font-family="monospace" font-size="15">${t.name}</text>`);
+  const hues = [200, 140, 30, 280, 340, 60, 170, 0, 240, 100];
+  let k = 0;
+  for (const r of routes.values()) {
+    const d = r.points.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`).join(' ');
+    parts.push(`<path d="${d}" fill="none" stroke="hsl(${hues[k++ % hues.length]} 70% 62%)" stroke-width="2"/>`);
+  }
+  parts.push('</svg>');
+  return parts.join('\n');
+}
+
+describe('router', () => {
+  it('goes around a card in the way', () => {
+    const routes = routeEdges({
+      cards: [
+        { id: 'a', x: 0, y: 0, w: 100, h: 100 },
+        { id: 'b', x: 400, y: 0, w: 100, h: 100 },
+        { id: 'wall', x: 200, y: -200, w: 100, h: 400 },
+      ],
+      edges: [{ id: 'e', net: 'n', src: { card: 'a', y: 50 }, dst: { card: 'b', y: 50 } }],
+    });
+    const r = routes.get('e')!;
+    expect(r.srcSide).toBe('R');
+    expect(r.dstSide).toBe('L');
+    for (const p of r.points) expect(p.x > 200 && p.x < 300 && p.y > -200 && p.y < 200).toBe(false);
+  });
+
+  it('separates lines that share a corridor', () => {
+    const routes = routeEdges({
+      cards: [
+        { id: 'a', x: 0, y: 0, w: 100, h: 200 },
+        { id: 'b', x: 300, y: 0, w: 100, h: 200 },
+      ],
+      edges: [
+        { id: 'e1', net: 'n1', src: { card: 'a', y: 20 }, dst: { card: 'b', y: 180 } },
+        { id: 'e2', net: 'n2', src: { card: 'a', y: 180 }, dst: { card: 'b', y: 20 } },
+        { id: 'e3', net: 'n3', src: { card: 'a', y: 100 }, dst: { card: 'b', y: 140 } },
+      ],
+    });
+    const xs = [...routes.values()].map((r) => r.points.find((p, i) => i && r.points[i - 1].x === p.x)!.x);
+    expect(new Set(xs).size).toBe(3);
+  });
+});
+
+describe.runIf(existsSync(V15))('router on schema-v15', () => {
+  it('routes the arranged schema without cutting through cards', async () => {
+    const s = parseSql(readFileSync(V15, 'utf8')).schema;
+    const g = suggestGroups(s);
+    s.groups = g.groups;
+    for (const t of s.tables) t.groupId = g.assignment.get(t.id);
+    const pos = await autoLayout(s, { direction: 'RIGHT' });
+    for (const t of s.tables) Object.assign(t, pos.get(t.id));
+    const t0 = performance.now();
+    const routes = routeSchema(s, 'full');
+    const ms = performance.now() - t0;
+    const net = new Map(s.relations.map((r) => [r.id, `${r.to.table}:${r.to.columns[0]}`]));
+    const hits = cardHits(s, routes);
+    const shared = overlaps(routes, net, process.env.DEBUG_ROUTES ? console.log : undefined);
+    const bends = [...routes.values()].reduce((n, r) => n + r.points.length - 2, 0);
+    console.log(`routed ${routes.size} lines in ${ms.toFixed(1)} ms · bends ${bends} · overlaps ${shared} · card hits ${hits.length}`);
+    if (process.env.DEBUG_ROUTES) {
+      mkdirSync('.cache/playwright-mcp', { recursive: true });
+      writeFileSync('.cache/playwright-mcp/routes-v15.svg', toSvg(s, routes));
+    }
+    expect(hits).toEqual([]);
+    expect(shared).toBe(0);
+  });
+
+  it('stays fast enough to re-route while dragging on a large schema', async () => {
+    // 6 copies of v15 side by side, linked to each other through their hub tables
+    const base = parseSql(readFileSync(V15, 'utf8')).schema;
+    const s: Schema = { ...base, tables: [], relations: [], groups: [] };
+    for (let k = 0; k < 6; k++) {
+      const suffix = `_${k}`;
+      for (const t of base.tables) s.tables.push({ ...t, id: t.id + suffix, columns: t.columns.map((c) => ({ ...c, id: c.id + suffix })), groupId: undefined });
+      for (const r of base.relations)
+        s.relations.push({ ...r, id: r.id + suffix, from: { table: r.from.table + suffix, columns: r.from.columns.map((c) => c + suffix) }, to: { table: r.to.table + suffix, columns: r.to.columns.map((c) => c + suffix) } });
+    }
+    const g = suggestGroups(s);
+    s.groups = g.groups;
+    for (const t of s.tables) t.groupId = g.assignment.get(t.id);
+    const pos = await autoLayout(s, { direction: 'RIGHT' });
+    for (const t of s.tables) Object.assign(t, pos.get(t.id));
+    routeSchema(s, 'full');
+    const t0 = performance.now();
+    const routes = routeSchema(s, 'full');
+    const ms = performance.now() - t0;
+    console.log(`${s.tables.length} tables / ${routes.size} lines routed in ${ms.toFixed(1)} ms · card hits ${cardHits(s, routes).length}`);
+    expect(cardHits(s, routes)).toEqual([]);
+  });
+});

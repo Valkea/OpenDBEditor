@@ -12,6 +12,11 @@ export interface RelationEdgeData extends Record<string, unknown> {
   diff?: 'added';
   color?: string;
   blueprint?: boolean;
+  /** Orthogonal route from the router (source → target); falls back to a smooth step without it. */
+  points?: { x: number; y: number }[];
+  /** Pushed back while something else has focus. */
+  dim?: boolean;
+  hover?: boolean;
 }
 
 export type RelationEdgeType = Edge<RelationEdgeData, 'relation'>;
@@ -34,18 +39,60 @@ function endGlyph(x: number, y: number, dir: number, kind: 'many' | 'one' | 'zer
   return p.join(' ');
 }
 
+/** Polyline with rounded corners, plus the point halfway along it (for the label). */
+function roundedPath(pts: { x: number; y: number }[], radius = 10): [string, number, number] {
+  let d = `M ${pts[0].x} ${pts[0].y}`;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const a = pts[i - 1], b = pts[i], c = pts[i + 1];
+    const lin = Math.hypot(b.x - a.x, b.y - a.y);
+    const lout = Math.hypot(c.x - b.x, c.y - b.y);
+    const r = Math.min(radius, lin / 2, lout / 2);
+    if (!r) {
+      d += ` L ${b.x} ${b.y}`;
+      continue;
+    }
+    d += ` L ${b.x + ((a.x - b.x) / lin) * r} ${b.y + ((a.y - b.y) / lin) * r} Q ${b.x} ${b.y} ${b.x + ((c.x - b.x) / lout) * r} ${b.y + ((c.y - b.y) / lout) * r}`;
+  }
+  const z = pts[pts.length - 1];
+  d += ` L ${z.x} ${z.y}`;
+  // label anchor: halfway along the line
+  let total = 0;
+  for (let i = 1; i < pts.length; i++) total += Math.abs(pts[i].x - pts[i - 1].x) + Math.abs(pts[i].y - pts[i - 1].y);
+  let left = total / 2;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i];
+    const len = Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
+    if (left <= len && len) return [d, a.x + ((b.x - a.x) * left) / len, a.y + ((b.y - a.y) * left) / len];
+    left -= len;
+  }
+  return [d, z.x, z.y];
+}
+
 function RelationEdgeImpl(props: EdgeProps<RelationEdgeType>) {
-  const { id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, selected } = props;
-  const [path, lx, ly] = getSmoothStepPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, borderRadius: 14, offset: 26 });
-  const sDir = sourcePosition === Position.Right ? 1 : -1;
-  const tDir = targetPosition === Position.Right ? 1 : -1;
+  const { id, sourcePosition, targetPosition, data, selected } = props;
+  let { sourceX, sourceY, targetX, targetY } = props;
+  const pts = data?.points && data.points.length > 1 ? data.points : null;
+  let path: string, lx: number, ly: number;
+  let sDir = sourcePosition === Position.Right ? 1 : -1;
+  let tDir = targetPosition === Position.Right ? 1 : -1;
+  if (pts) {
+    [path, lx, ly] = roundedPath(pts);
+    const a = pts[0], b = pts[1], y = pts[pts.length - 2], z = pts[pts.length - 1];
+    [sourceX, sourceY, targetX, targetY] = [a.x, a.y, z.x, z.y];
+    sDir = b.x >= a.x ? 1 : -1;
+    tDir = y.x >= z.x ? 1 : -1;
+  } else {
+    [path, lx, ly] = getSmoothStepPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, borderRadius: 14, offset: 26 });
+  }
   const childKind = data?.childUnique ? 'one' : 'many';
   const parentKind = data?.childNullable ? 'zero-one' : 'one-one';
   const cls = [
     'rel',
     selected && 'is-selected',
     data?.faded && 'is-faded',
+    data?.dim && 'is-dim',
     data?.lit && 'is-lit',
+    data?.hover && 'is-hover',
     data?.path && 'is-path',
     data?.diff && `diff-${data.diff}`,
     data?.onDelete === 'CASCADE' && 'is-cascade',
@@ -60,7 +107,7 @@ function RelationEdgeImpl(props: EdgeProps<RelationEdgeType>) {
       <path d={endGlyph(sourceX, sourceY, sDir, childKind)} className="rel-glyph" />
       <path d={endGlyph(targetX, targetY, tDir, parentKind)} className="rel-glyph" />
       {data?.childNullable && <circle cx={targetX + tDir * 22} cy={targetY} r={3.5} className="rel-glyph rel-hollow" />}
-      {(selected || data?.path) && (
+      {(selected || data?.path || data?.hover) && (
         <EdgeLabelRenderer>
           <div className={`rel-label ${data?.path ? 'is-path' : ''}`} style={{ transform: `translate(-50%, -50%) translate(${lx}px, ${ly}px)` }}>
             {data?.label}

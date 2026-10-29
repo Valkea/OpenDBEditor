@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { adjacency, hopDistances } from '../analysis/graph';
 import { CARD_W, cardHeight, type Detail } from '../layout/geometry';
 import { forceLayoutPositions, orbitPositions, starRadius } from '../layout/constellation';
+import { routeSchema } from '../layout/routing';
 import { uid } from '../model/ids';
 import type { Schema } from '../model/types';
 import { canonicalType, isSerial } from '../sql/pg';
@@ -94,6 +95,7 @@ export function Canvas() {
   const flowStore = useStoreApi();
   if (import.meta.env.DEV) (window as unknown as { __rf: typeof flowStore }).__rf = flowStore;
   const [hover, setHover] = useState<string | null>(null);
+  const [hoverEdge, setHoverEdge] = useState<string | null>(null);
   const [measured, setMeasured] = useState<Map<string, { width: number; height: number }>>(new Map());
 
   // ---- constellation positions ----
@@ -126,6 +128,14 @@ export function Canvas() {
       useStore.getState().select({ kind: 'table', id });
     },
     [rf],
+  );
+
+  // Orthogonal routes for every drawn relation (cards are obstacles, shared corridors become lanes).
+  const routes = useMemo(
+    () => (view === 'constellation' ? null : routeSchema(schema, detail, hidden)),
+    // positions, sizes and links only — selection and the like don't move lines
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [view, detail, hidden, schema.tables, schema.relations, schema.groups],
   );
 
   const highlight = useMemo(() => {
@@ -304,22 +314,15 @@ export function Canvas() {
       const fc = f.columns.find((c) => c.id === r.from.columns[0]);
       const tc = t.columns.find((c) => c.id === r.to.columns[0]);
       if (!fc || !tc) continue;
+      const route = routes?.get(r.id);
       const dx = t.x + CARD_W / 2 - (f.x + CARD_W / 2);
-      let fs: 'L' | 'R';
-      let ts: 'L' | 'R';
-      if (f.id === t.id || Math.abs(dx) < CARD_W * 0.55) {
-        fs = 'R';
-        ts = 'R';
-      } else if (dx > 0) {
-        fs = 'R';
-        ts = 'L';
-      } else {
-        fs = 'L';
-        ts = 'R';
-      }
+      const fs = route?.srcSide ?? (dx >= 0 ? 'R' : 'L');
+      const ts = route?.dstSide ?? (dx >= 0 ? 'L' : 'R');
       const compact = detail === 'compact';
       const onPath = !!path?.relIds.has(r.id);
-      const lit = !!highlight.focusId && (r.from.table === highlight.focusId || r.to.table === highlight.focusId);
+      const isHover = hoverEdge === r.id;
+      const lit = isHover || (!!highlight.focusId && (r.from.table === highlight.focusId || r.to.table === highlight.focusId));
+      const focused = !!highlight.focusId || !!hoverEdge;
       const g = f.groupId ? byGroup.get(f.groupId) : undefined;
       out.push({
         id: r.id,
@@ -335,7 +338,10 @@ export function Canvas() {
           childUnique: fc.unique || (fc.pk && f.columns.filter((c) => c.pk).length === 1),
           childNullable: r.from.columns.some((id) => f.columns.find((c) => c.id === id)?.nullable),
           faded: path?.rels ? !onPath : isFaded(f.id, t.id),
+          dim: focused && !lit && !path?.rels,
           lit: lit && !path?.rels,
+          hover: isHover,
+          points: route?.points,
           path: onPath,
           diff: diff?.relationStatus.get(r.id) === 'added' ? 'added' : undefined,
           color: view === 'atlas' ? g?.color : undefined,
@@ -351,7 +357,7 @@ export function Canvas() {
       out.push({ id: `nl:${n.id}`, source: `note:${n.id}`, sourceHandle: 'n', target: n.attachedTo, targetHandle: side, type: 'notelink', selectable: false, focusable: false });
     }
     return out;
-  }, [schema, view, hidden, path, lens, selection, detail, diff, highlight]);
+  }, [schema, view, hidden, path, lens, selection, detail, diff, highlight, routes, hoverEdge]);
 
   // Handles move without the card changing size (detail level, view, column edits),
   // which React Flow's resize observer can't see — re-measure them explicitly.
@@ -483,6 +489,8 @@ export function Canvas() {
         onPaneClick={() => useStore.getState().select(null)}
         onNodeMouseEnter={(_, n) => (n.type === 'table' || n.type === 'star') && setHover(n.id)}
         onNodeMouseLeave={() => setHover(null)}
+        onEdgeMouseEnter={(_, e) => e.type === 'relation' && setHoverEdge(e.id)}
+        onEdgeMouseLeave={() => setHoverEdge(null)}
         onConnect={onConnect}
         onDoubleClick={(e) => {
           if (view === 'constellation') return;

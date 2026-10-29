@@ -497,6 +497,10 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 .rel.is-lit .rel-line, .rel.is-selected .rel-line { opacity: 1; stroke-width: 2.4; }
 .rel.is-selected .rel-line { stroke: var(--accent); }
 .rel.is-faded { opacity: .06; }
+.rel { transition: opacity .2s; }
+.rel.is-dim { opacity: .16; }
+.rel.is-hover .rel-line { opacity: 1; stroke-width: 3; }
+.rel.is-hover .rel-glyph { opacity: 1; stroke-width: 2; }
 .rel.is-path .rel-line { stroke: var(--accent); stroke-width: 3; opacity: 1; }
 .rel.is-path .rel-glyph { stroke: var(--accent); opacity: 1; }
 .rel.diff-added .rel-line, .rel.diff-added .rel-glyph { stroke: var(--ok); opacity: 1; }
