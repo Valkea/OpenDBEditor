@@ -1,9 +1,21 @@
 # OpenDB Editor
 
-A PostgreSQL schema designer that runs entirely in the browser. The whole schema — tables, enums,
-extensions, relationships, groups, notes and positions — is compressed into the page URL's `#hash`,
-so **bookmarking the page saves the schema** and sharing the link shares it. The hash is never sent
-to any server; the app is static files.
+A PostgreSQL schema designer that runs entirely in the browser.
+
+- **Nothing leaves your browser.** SQL is parsed, analysed and drawn on your device. There is no
+  backend: the app is a set of static files, and the production build ships a Content-Security-Policy
+  that forbids the page from contacting any other host, so the browser itself enforces it.
+- **Works fully offline.** A service worker caches every file of the app (including the lazily
+  loaded layout engine and SQL editor) on first visit; after that it runs with no network at all,
+  and can be installed as an app.
+- **No account, no tracking.** No sign-up, no cookies, no analytics. The only thing stored locally
+  is your light/dark preference.
+- **The link is the file.** The whole schema — tables, enums, extensions, relationships, groups,
+  notes and positions — is compressed into the page URL's `#hash`, updated on every edit. Share the
+  link to share the schema; bookmark the page to save it, even offline. The part after `#` is never
+  sent to any server, not even the one hosting the app. A bookmark only holds the version you
+  bookmarked, so also keep a copy with **Export → SQL + layout**, which re-opens with positions,
+  groups and notes.
 
 ## Three ways to look at a schema
 

@@ -15,9 +15,11 @@ import {
   Redo2,
   Ruler,
   Search,
+  ShieldCheck,
   Sun,
   Undo2,
   Waypoints,
+  WifiOff,
   Workflow,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -67,6 +69,42 @@ export async function exportPng(rf: ReturnType<typeof useReactFlow>, theme: stri
   return toPng(el, { backgroundColor: bg, width: w, height: h, style: { width: `${w}px`, height: `${h}px`, transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})` } });
 }
 
+function useOnline() {
+  const [online, setOnline] = useState(() => navigator.onLine);
+  useEffect(() => {
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => {
+      window.removeEventListener('online', on);
+      window.removeEventListener('offline', off);
+    };
+  }, []);
+  return online;
+}
+
+/** Always-visible reminder that the schema never leaves this device. */
+function LocalBadge() {
+  const online = useOnline();
+  return (
+    <span
+      className={`local-badge ${online ? '' : 'is-offline'}`}
+      title={
+        (online ? '' : 'You are offline: everything still works.\n\n') +
+        'Runs entirely in your browser: your SQL is parsed and drawn on this device, and nothing is sent to any server ' +
+        '(the page is not allowed to contact one). The app is cached on this device and works fully offline. ' +
+        '\n\nThe URL is the file: the whole schema is packed into it. Share the link to share the schema, bookmark it to save your work, even offline. ' +
+        'The schema sits after the #, a part browsers never send to any server. ' +
+        'A bookmark only holds the version you bookmarked: also keep a copy with Export → SQL + layout.'
+      }
+    >
+      {online ? <ShieldCheck size={13} /> : <WifiOff size={13} />}
+      <span className="tb-label">{online ? 'Local only' : 'Offline'}</span>
+    </span>
+  );
+}
+
 export function TopBar({ onPalette }: { onPalette: () => void }) {
   const schema = useStore((s) => s.schema);
   const view = schema.view ?? 'atlas';
@@ -87,7 +125,7 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
   const share = async () => {
     const url = shareUrl(encodeSchema(st().schema));
     window.history.replaceState(null, '', url);
-    if (await copyText(url)) st().toast(`Link copied · ${(url.length / 1024).toFixed(1)} kB, everything lives in the URL`);
+    if (await copyText(url)) st().toast(`Link copied · ${(url.length / 1024).toFixed(1)} kB · the schema lives in the link itself, no server stores it`);
   };
 
   return (
@@ -108,6 +146,7 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
         spellCheck={false}
         aria-label="Schema name"
       />
+      <LocalBadge />
       <div className="segmented" role="tablist">
         {VIEWS.map((v) => (
           <button key={v.id} role="tab" aria-selected={view === v.id} className={view === v.id ? 'is-on' : ''} title={v.hint} onClick={() => st().setView(v.id)}>
@@ -204,7 +243,7 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
             </>
           )}
         </Menu>
-        <button className="tb-btn primary" title="Copy a link that contains the whole schema" onClick={share}>
+        <button className="tb-btn primary" title="Copy a link that contains the whole schema: whoever opens it gets the schema, no server involved. Bookmark the page to save your work." onClick={share}>
           <Link2 size={15} />
           <span className="tb-label">Share</span>
         </button>
