@@ -1,5 +1,6 @@
 import { getNodesBounds, getViewportForBounds, useReactFlow } from '@xyflow/react';
 import {
+  Boxes,
   Code2,
   Download,
   FileUp,
@@ -17,6 +18,7 @@ import {
   Sun,
   Undo2,
   Waypoints,
+  Workflow,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { ViewMode } from '../model/types';
@@ -76,6 +78,7 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
   const portals = useStore((s) => s.portals);
   const busy = useStore((s) => s.layoutBusy);
   const direction = useStore((s) => s.direction);
+  const arrangeMode = useStore((s) => s.arrangeMode);
   const st = useStore.getState;
   const rf = useReactFlow();
 
@@ -118,6 +121,13 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
             <button className="tb-btn" title="Auto-layout (L): clusters by group, minimises crossings, keeps locked tables" disabled={busy} onClick={() => void st().runAutoLayout()}>
               {busy ? <Loader2 size={15} className="spin" /> : <LayoutGrid size={15} />}
               <span className="tb-label">Arrange</span>
+            </button>
+            <button
+              className="tb-btn tb-mini"
+              title={arrangeMode === 'groups' ? 'Arrange by group: islands per domain, fewest crossings (click: by dependency)' : 'Arrange by dependency: referenced tables first, groups as bands (click: by group)'}
+              onClick={() => st().set({ arrangeMode: arrangeMode === 'groups' ? 'flow' : 'groups' })}
+            >
+              {arrangeMode === 'groups' ? <Boxes size={14} /> : <Workflow size={14} />}
             </button>
             <button className="tb-btn tb-mini" title={`Direction: ${direction === 'RIGHT' ? 'left → right' : 'top → bottom'}`} onClick={() => st().set({ direction: direction === 'RIGHT' ? 'DOWN' : 'RIGHT' })}>
               {direction === 'RIGHT' ? '→' : '↓'}

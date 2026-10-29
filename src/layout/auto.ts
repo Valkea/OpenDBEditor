@@ -5,9 +5,12 @@
 import type { ElkExtendedEdge, ElkNode, ElkPort } from 'elkjs/lib/elk-api';
 import type { Schema } from '../model/types';
 import { CARD_W, cardHeight, rowCenterY, type Rect } from './geometry';
+import { flowLayout } from './flow';
 import { routedCrossings } from './routing';
 
 export type Direction = 'RIGHT' | 'DOWN';
+/** groups: islands per group, fewest crossings. flow: columns by dependency depth, groups as bands. */
+export type ArrangeMode = 'groups' | 'flow';
 
 export interface LayoutOptions {
   direction: Direction;
@@ -16,6 +19,7 @@ export interface LayoutOptions {
   spacing?: number;
   /** Force one strategy instead of picking the best. */
   only?: Strategy;
+  mode?: ArrangeMode;
 }
 
 type Pos = { x: number; y: number };
@@ -26,7 +30,7 @@ function getElk() {
   return elkPromise;
 }
 
-export type Strategy = 'compound' | 'islands-down' | 'islands-right' | 'islands-stress';
+export type Strategy = 'compound' | 'islands-down' | 'islands-right' | 'islands-stress' | 'flow';
 
 export interface LayoutResult {
   pos: Map<string, Pos>;
@@ -63,6 +67,10 @@ export async function autoLayout(schema: Schema, opts: LayoutOptions): Promise<M
 /** Try several strategies and keep the cleanest drawing. */
 export async function autoLayoutDetailed(schema: Schema, opts: LayoutOptions): Promise<LayoutResult> {
   const hidden = opts.hiddenRelations ?? new Set<string>();
+  if (opts.mode === 'flow' || opts.only === 'flow') {
+    const raw = flowLayout(schema, opts.direction, hidden);
+    return { pos: finalize(schema, raw), strategy: 'flow', crossings: score(schema, raw, hidden).crossings };
+  }
   const strategies: Strategy[] = opts.only ? [opts.only] : schema.groups.length ? ['islands-down', 'islands-right', 'islands-stress', 'compound'] : ['compound'];
   let best: (LayoutResult & { score: number }) | null = null;
   for (const strategy of strategies) {

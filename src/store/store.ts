@@ -9,7 +9,7 @@ import { type Diagnostic, parseSql } from '../sql/parser';
 import { applyLayout } from '../sql/layoutMeta';
 import { decodeSchema } from '../share/codec';
 import { diffSchemas } from '../analysis/diff';
-import { autoLayout, type Direction } from '../layout/auto';
+import { autoLayout, type ArrangeMode, type Direction } from '../layout/auto';
 import { suggestGroups } from '../layout/cluster';
 import { routedCrossings } from '../layout/routing';
 import { inDegree } from '../analysis/graph';
@@ -54,6 +54,7 @@ interface State {
   hubThreshold: number;
   layoutBusy: boolean;
   direction: Direction;
+  arrangeMode: ArrangeMode;
   toasts: Toast[];
   welcome: boolean;
   /** Bumped when the camera should frame the whole drawing. */
@@ -125,6 +126,7 @@ export const useStore = create<State>((set, get) => ({
   hubThreshold: 5,
   layoutBusy: false,
   direction: 'RIGHT',
+  arrangeMode: 'groups',
   toasts: [],
   welcome: false,
   fitRequest: 0,
@@ -264,10 +266,10 @@ export const useStore = create<State>((set, get) => ({
           d.groups.push(...s.groups);
         });
       }
-      const { schema, portals, hubThreshold, direction } = get();
+      const { schema, portals, hubThreshold, direction, arrangeMode } = get();
       const hidden = hiddenRelations(schema, portals, hubThreshold);
       const before = routedCrossings(schema, hidden);
-      const pos = await autoLayout(schema, { direction, hiddenRelations: hidden });
+      const pos = await autoLayout(schema, { direction, mode: arrangeMode, hiddenRelations: hidden });
       await get().animateTo(pos);
       const after = routedCrossings(get().schema, hidden);
       if (schema.tables.some((t) => t.x || t.y)) get().toast(`Auto-layout done · line crossings ${before} → ${after}`);

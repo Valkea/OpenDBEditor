@@ -74,3 +74,24 @@ describe.runIf(existsSync(V15))('auto-layout on schema-v15', () => {
     expect(overlaps(s)).toBe(0);
   });
 });
+
+describe.runIf(existsSync(V15))('flow arrangement on schema-v15', () => {
+  it('puts every referenced table in an earlier column, without overlaps', async () => {
+    for (const direction of ['RIGHT', 'DOWN'] as const) {
+      const s = grouped();
+      const r = await autoLayoutDetailed(s, { direction, mode: 'flow' });
+      apply(s, r.pos);
+      expect(r.strategy).toBe('flow');
+      expect(overlaps(s)).toBe(0);
+      const byId = new Map(s.tables.map((t) => [t.id, t]));
+      for (const rel of s.relations) {
+        if (rel.from.table === rel.to.table) continue;
+        const child = byId.get(rel.from.table)!, parent = byId.get(rel.to.table)!;
+        if (direction === 'RIGHT') expect(parent.x).toBeLessThanOrEqual(child.x);
+        else expect(parent.y).toBeLessThanOrEqual(child.y);
+      }
+      const b = bounds(s);
+      console.log('flow', direction, 'crossings', r.crossings, 'size', Math.round(b.w), 'x', Math.round(b.h));
+    }
+  });
+});
