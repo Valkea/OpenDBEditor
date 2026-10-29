@@ -164,12 +164,13 @@ export function Canvas() {
   const orbit = useMemo(() => (view === 'constellation' && starFocus ? orbitPositions(schema, starFocus) : null), [view, starFocus, schema]);
 
   const issueCount = useMemo(() => {
-    const m = new Map<string, { errors: number; warnings: number }>();
+    const m = new Map<string, { errors: number; warnings: number; infos: number }>();
     for (const i of issues) {
-      if (!i.tableId || i.severity === 'info') continue;
-      const c = m.get(i.tableId) ?? { errors: 0, warnings: 0 };
+      if (!i.tableId) continue;
+      const c = m.get(i.tableId) ?? { errors: 0, warnings: 0, infos: 0 };
       if (i.severity === 'error') c.errors++;
-      else c.warnings++;
+      else if (i.severity === 'warning') c.warnings++;
+      else c.infos++;
       m.set(i.tableId, c);
     }
     return m;

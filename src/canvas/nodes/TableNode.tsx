@@ -20,7 +20,7 @@ export interface TableNodeData extends Record<string, unknown> {
   diff?: ChangeKind;
   colDiff?: Map<string, ChangeKind>;
   removedCols?: number;
-  issues?: { errors: number; warnings: number };
+  issues?: { errors: number; warnings: number; infos: number };
   selectedColumn?: string;
   onPortal?: (tableId: string) => void;
 }
@@ -76,7 +76,9 @@ function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
           </span>
           <span className="tblock-meta">
             {table.columns.length} col{table.columns.length === 1 ? '' : 's'}
-            {issues && issues.errors + issues.warnings > 0 && <span className={issues.errors ? 'tblock-err' : 'tblock-warn'}> · {issues.errors + issues.warnings} issue{issues.errors + issues.warnings > 1 ? 's' : ''}</span>}
+            {issues && issues.errors > 0 && <span className="tblock-err"> · {issues.errors} error{issues.errors > 1 ? 's' : ''}</span>}
+            {issues && issues.warnings > 0 && <span className="tblock-warn"> · {issues.warnings} warning{issues.warnings > 1 ? 's' : ''}</span>}
+            {issues && issues.infos > 0 && <span> · {issues.infos} hint{issues.infos > 1 ? 's' : ''}</span>}
             {diff && <span className={`tblock-diff diff-${diff}`}> · {diff === 'added' ? 'new' : 'changed'}</span>}
           </span>
           {table.locked && <Lock size={28} className="tblock-lock" />}
@@ -101,7 +103,8 @@ function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
           {!!removedCols && <span className="badge badge-removed">−{removedCols} col</span>}
           {table.status && <span className={`badge badge-${table.status}`}>{table.status}</span>}
           {issues && issues.errors > 0 && <span className="badge badge-err" title="Schema errors">{issues.errors}</span>}
-          {issues && !issues.errors && issues.warnings > 0 && <span className="badge badge-warn" title="Schema warnings">{issues.warnings}</span>}
+          {issues && issues.warnings > 0 && <span className="badge badge-warn" title="Schema warnings">{issues.warnings}</span>}
+          {issues && issues.infos > 0 && <span className="badge" title="Schema hints">{issues.infos}</span>}
           {table.portal && <Waypoints size={12} className="muted" aria-label="portal" />}
           {table.locked && <Lock size={12} className="muted" aria-label="locked" />}
         </span>
