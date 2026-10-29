@@ -28,6 +28,7 @@ import { encodeSchema, shareUrl } from '../share/codec';
 import { generateSql } from '../sql/generator';
 import { useStore } from '../store/store';
 import { copyText, download, pickFile, slug } from '../util/files';
+import { Promises } from './Promises';
 
 const VIEWS: { id: ViewMode; label: string; icon: typeof MapIcon; hint: string }[] = [
   { id: 'atlas', label: 'Atlas', icon: MapIcon, hint: 'Domains as regions, semantic zoom (1)' },
@@ -84,24 +85,47 @@ function useOnline() {
   return online;
 }
 
-/** Always-visible reminder that the schema never leaves this device. */
+/** Always-visible reminder that the schema never leaves this device; click for how it works. */
 function LocalBadge() {
   const online = useOnline();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const click = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    window.addEventListener('mousedown', click);
+    window.addEventListener('keydown', key);
+    return () => {
+      window.removeEventListener('mousedown', click);
+      window.removeEventListener('keydown', key);
+    };
+  }, [open]);
+  const exportSql = () => {
+    const schema = useStore.getState().schema;
+    download(`${slug(schema.name)}.sql`, generateSql(schema, { embedLayout: true }), 'application/sql');
+  };
   return (
-    <span
-      className={`local-badge ${online ? '' : 'is-offline'}`}
-      title={
-        (online ? '' : 'You are offline: everything still works.\n\n') +
-        'Runs entirely in your browser: your SQL is parsed and drawn on this device, and nothing is sent to any server ' +
-        '(the page is not allowed to contact one). The app is cached on this device and works fully offline. ' +
-        '\n\nThe URL is the file: the whole schema is packed into it. Share the link to share the schema, bookmark it to save your work, even offline. ' +
-        'The schema sits after the #, a part browsers never send to any server. ' +
-        'A bookmark only holds the version you bookmarked: also keep a copy with Export → SQL + layout.'
-      }
-    >
-      {online ? <ShieldCheck size={13} /> : <WifiOff size={13} />}
-      <span className="tb-label">{online ? 'Local only' : 'Offline'}</span>
-    </span>
+    <div className="local" ref={ref}>
+      <button className={`local-badge ${online ? '' : 'is-offline'} ${open ? 'is-open' : ''}`} aria-expanded={open} title="Where your data lives" onClick={() => setOpen(!open)}>
+        {online ? <ShieldCheck size={13} /> : <WifiOff size={13} />}
+        <span className="tb-label">{online ? 'Local only' : 'Offline'}</span>
+      </button>
+      {open && (
+        <div className="local-pop" role="dialog" aria-label="Where your data lives">
+          <div className="local-pop-head">
+            {online ? <ShieldCheck size={16} /> : <WifiOff size={16} />}
+            <span>{online ? 'Your schema stays on this device' : 'You are offline: everything still works'}</span>
+          </div>
+          <Promises className="local-pop-list" />
+          <div className="local-pop-foot">
+            <button className="btn sm primary" onClick={exportSql}>
+              <Download size={13} /> Export SQL + layout now
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
