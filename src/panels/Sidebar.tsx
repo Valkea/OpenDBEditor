@@ -46,6 +46,8 @@ export function SidebarRail() {
   const issues = useIssues();
   const diff = useDiff();
   const errs = issues.filter((i) => i.severity !== 'info').length;
+  const welcome = useStore((s) => s.welcome);
+  if (welcome) return null; // nothing open yet: keep the welcome screen clean
   return (
     <nav className="rail">
       {TABS.map((t) => (
@@ -66,7 +68,8 @@ export function SidebarRail() {
 
 export function Sidebar() {
   const tab = useStore((s) => s.sidebar);
-  if (!tab) return null;
+  const welcome = useStore((s) => s.welcome);
+  if (!tab || welcome) return null;
   return (
     <aside className="sidebar">
       <div className="pane-head">
