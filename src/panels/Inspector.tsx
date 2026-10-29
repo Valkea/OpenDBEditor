@@ -1,5 +1,6 @@
 import {
   ArrowDown,
+  ArrowLeft,
   ArrowUp,
   ChevronDown,
   ChevronRight,
@@ -25,7 +26,13 @@ import { copyText } from '../util/files';
 import { CodeEditor } from './CodeEditor';
 import { IssueRow } from './IssueRow';
 import { type TypeGroup, TypePicker } from './TypePicker';
-import { useFly } from './useFly';
+import { useFly as useCameraFly } from './useFly';
+
+/** Fly to a table from the inspector, keeping the way back. */
+function useFly() {
+  const fly = useCameraFly();
+  return (tableId: string, columnId?: string) => useStore.getState().visit(() => fly(tableId, columnId));
+}
 
 export function Inspector() {
   const sel = useStore((s) => s.selection);
@@ -49,8 +56,14 @@ export function Inspector() {
 }
 
 function Head({ title, children }: { title: string; children?: React.ReactNode }) {
+  const back = useStore((s) => (s.trail && s.trail.at === s.selection ? s.trail.stack[s.trail.stack.length - 1] : undefined));
   return (
     <div className="pane-head">
+      {back && (
+        <button className="icon-btn" title={`Back to the ${back.kind}`} onClick={() => useStore.getState().back()}>
+          <ArrowLeft size={15} />
+        </button>
+      )}
       <span className="pane-title">{title}</span>
       <span className="grow" />
       {children}
@@ -461,7 +474,7 @@ function TableInspector({ id, columnId }: { id: string; columnId?: string }) {
         </div>
         {outgoing.map((r) => (
           <div key={r.id} className="rel-row">
-            <button className="link mono" onClick={() => useStore.getState().select({ kind: 'relation', id: r.id })}>
+            <button className="link mono" onClick={() => useStore.getState().visit(() => useStore.getState().select({ kind: 'relation', id: r.id }))}>
               {cname(id, r.from.columns[0])} → {tname(r.to.table)}.{cname(r.to.table, r.to.columns[0])}
             </button>
             <select className="input xs" title="ON DELETE" value={r.onDelete} onChange={(e) => commit((d) => void (d.relations.find((x) => x.id === r.id)!.onDelete = e.target.value as FkAction))}>

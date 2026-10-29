@@ -43,6 +43,8 @@ interface State {
   revision: number;
 
   selection: Selection;
+  /** Items left by following links in the inspector; only valid while `at` is still the selection. */
+  trail: { stack: NonNullable<Selection>[]; at: Selection } | null;
   sidebar: SidebarTab | null;
   sqlOpen: boolean;
   theme: 'dark' | 'light';
@@ -78,6 +80,9 @@ interface State {
   loadCompareBase: (text: string, name: string) => string | null;
   applySqlFromPane: (sql: string) => Diagnostic[];
   select: (s: Selection) => void;
+  /** Run a navigation from the inspector, remembering the current item for the back button. */
+  visit: (go: () => void) => void;
+  back: () => void;
   setView: (v: ViewMode) => void;
   set: (p: Partial<State>) => void;
   toast: (text: string, tone?: Toast['tone']) => void;
@@ -121,6 +126,7 @@ export const useStore = create<State>((set, get) => ({
   origin: 'load',
   revision: 0,
   selection: null,
+  trail: null,
   sidebar: isPhone() ? null : 'tables', // on a phone the panel would cover the whole diagram
   sqlOpen: false,
   theme: readTheme(),
@@ -272,6 +278,20 @@ export const useStore = create<State>((set, get) => ({
   },
 
   select: (selection) => set({ selection }),
+  visit: (go) => {
+    const { selection: prev, trail } = get();
+    const stack = trail && trail.at === prev ? trail.stack : [];
+    go();
+    const at = get().selection;
+    if (prev && at !== prev) set({ trail: { stack: [...stack, prev], at } });
+  },
+  back: () => {
+    const { selection, trail } = get();
+    if (!trail || trail.at !== selection || !trail.stack.length) return;
+    const stack = trail.stack.slice(0, -1);
+    const to = trail.stack[trail.stack.length - 1];
+    set({ selection: to, trail: stack.length ? { stack, at: to } : null });
+  },
   setView: (v) => {
     set({ starFocus: null });
     get().commit((d) => void (d.view = v), 'view');
