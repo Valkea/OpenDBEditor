@@ -30,6 +30,7 @@ function useUrlSync() {
         lastWritten.current = packed;
         st.set({ linkError: null });
         useStore.getState().load(schema);
+        document.title = `${schema.name} · OpenDB Editor`;
       } catch (e) {
         console.error(e);
         st.set({
@@ -47,12 +48,18 @@ function useUrlSync() {
       if (!pending) return;
       pending = false;
       const schema = useStore.getState().schema;
-      if (!schema.tables.length && !schema.notes.length) return;
+      if (!schema.tables.length && !schema.notes.length) {
+        // started over: clear the address bar, as a new history entry so Back returns to the previous schema
+        if (window.location.hash) window.history.pushState(null, '', window.location.pathname + window.location.search);
+        lastWritten.current = '';
+        document.title = 'OpenDB Editor';
+        return;
+      }
+      document.title = `${schema.name} · OpenDB Editor`;
       const packed = encodeSchema(schema);
       if (packed === lastWritten.current) return;
       lastWritten.current = packed;
       window.history.replaceState(null, '', `#s=${packed}`);
-      document.title = `${schema.name} · OpenDB Editor`;
     };
     // flush right away when the page loses focus (e.g. clicking the address bar to copy it)
     const onHide = () => flush();

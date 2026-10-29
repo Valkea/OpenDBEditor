@@ -69,6 +69,8 @@ interface State {
   undo: () => void;
   redo: () => void;
   load: (schema: Schema, origin?: State['origin']) => void;
+  /** Back to the welcome screen with an empty schema; undoable (and the browser's Back works too). */
+  startOver: () => void;
   importSql: (sql: string, name?: string) => Promise<void>;
   /** Load an older version (SQL text or a share link) to compare against. Returns an error message. */
   loadCompareBase: (text: string, name: string) => string | null;
@@ -85,6 +87,8 @@ interface State {
 }
 
 const HISTORY = 200;
+
+const isBlank = (s: Schema) => !s.tables.length && !s.notes.length;
 
 function readTheme(): 'dark' | 'light' {
   try {
@@ -160,15 +164,36 @@ export const useStore = create<State>((set, get) => ({
   undo: () => {
     const { past, schema, future } = get();
     if (!past.length) return;
-    set({ schema: past[past.length - 1], past: past.slice(0, -1), future: [schema, ...future], origin: 'canvas', lastKey: undefined, revision: get().revision + 1 });
+    const prev = past[past.length - 1];
+    set({ schema: prev, past: past.slice(0, -1), future: [schema, ...future], origin: 'canvas', lastKey: undefined, revision: get().revision + 1, welcome: isBlank(prev) && get().welcome }); // undoing a start-over leaves the welcome screen
   },
   redo: () => {
     const { past, schema, future } = get();
     if (!future.length) return;
-    set({ schema: future[0], future: future.slice(1), past: [...past, schema], origin: 'canvas', lastKey: undefined, revision: get().revision + 1 });
+    set({ schema: future[0], future: future.slice(1), past: [...past, schema], origin: 'canvas', lastKey: undefined, revision: get().revision + 1, welcome: isBlank(future[0]) });
   },
   load: (schema, origin = 'load') => {
     set({ schema, past: [], future: [], selection: null, origin, revision: get().revision + 1, starFocus: null, path: {}, welcome: false, fitRequest: get().fitRequest + 1 });
+  },
+
+  startOver: () => {
+    const { schema, past } = get();
+    if (isBlank(schema)) return set({ welcome: true, selection: null });
+    set({
+      schema: emptySchema(),
+      past: [...past.slice(-HISTORY), schema],
+      future: [],
+      lastKey: undefined,
+      selection: null,
+      origin: 'load',
+      revision: get().revision + 1,
+      starFocus: null,
+      path: {},
+      diffBase: null,
+      welcome: true,
+      linkError: null,
+    });
+    get().toast(isPhone() ? 'Started a new schema · Undo (⋯ menu) or Back brings the previous one back' : 'Started a new schema · ⌘Z or the browser’s Back brings the previous one back');
   },
 
   importSql: async (sql, name) => {

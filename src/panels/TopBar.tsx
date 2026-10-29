@@ -137,7 +137,7 @@ function LocalBadge() {
 
 function Brand() {
   return (
-    <div className="brand" title="OpenDB Editor">
+    <button className="brand" title="New schema: back to the start page (⌘Z or the browser's Back brings this one back)" onClick={() => useStore.getState().startOver()}>
       <svg viewBox="0 0 32 32" width="22" height="22" aria-hidden>
         <circle cx="10" cy="11" r="3.2" fill="#7c9cff" />
         <circle cx="22" cy="9" r="2.4" fill="#5eead4" />
@@ -145,7 +145,7 @@ function Brand() {
         <path d="M10 11 L22 9 M10 11 L20 22 M22 9 L20 22" stroke="currentColor" strokeOpacity=".5" strokeWidth="1.2" />
       </svg>
       <span>OpenDB</span>
-    </div>
+    </button>
   );
 }
 
