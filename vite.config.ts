@@ -78,9 +78,14 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
-  // the page itself (any #hash, any ?query): the cached shell
+  // the page itself: network first, so a plain refresh always gets the latest release;
+  // the cached shell only when offline (or the network hangs)
   if (req.mode === 'navigate') {
-    e.respondWith(caches.match('./', { ignoreSearch: true, ignoreVary: true }).then((r) => r || fetch(req)));
+    e.respondWith(
+      Promise.race([fetch(req), new Promise((_, no) => setTimeout(no, 4000))])
+        .then((r) => (r.ok ? r : Promise.reject(r)))
+        .catch(() => caches.match('./', { ignoreSearch: true, ignoreVary: true }).then((r) => r || fetch(req))),
+    );
     return;
   }
   // ignoreVary: hosts often send "Vary: Origin", and module scripts carry an Origin header the precache requests didn't
