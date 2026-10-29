@@ -5,6 +5,7 @@ import {
   Download,
   FileUp,
   Focus,
+  GitCompareArrows,
   HeartPulse,
   Image,
   LayoutGrid,
@@ -14,12 +15,15 @@ import {
   Moon,
   MoreHorizontal,
   Orbit,
+  Plus,
+  Puzzle,
   Redo2,
   Route,
   Ruler,
   Search,
   ShieldCheck,
   Smartphone,
+  StickyNote,
   Sun,
   Undo2,
   Waypoints,
@@ -205,6 +209,10 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
           void fn();
         };
         const panel = (id: SidebarTab) => run(() => st().set({ sidebar: st().sidebar === id ? null : id, sqlOpen: false }));
+        const center = () => {
+          const c = rf.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+          return { x: c.x - 140, y: c.y - 60 };
+        };
         return (
           <>
             {full && (
@@ -212,7 +220,7 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
                 <div className="menu-note">
                   <Smartphone size={14} />
                   <span>
-                    <b>Limited phone mode.</b> Viewing, exploring and sharing work; editing is cramped and some tools are hidden. Use a computer or tablet to edit.
+                    <b>Phone mode.</b> Everything works, but editing is cramped and there are no keyboard shortcuts. A computer or tablet is more comfortable.
                   </span>
                 </div>
                 <div className="menu-sep">File</div>
@@ -224,6 +232,8 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
                 <div className="menu-sep">Edit</div>
                 <button disabled={!canUndo} onClick={run(() => st().undo())}><Undo2 size={14} /> Undo</button>
                 <button disabled={!canRedo} onClick={run(() => st().redo())}><Redo2 size={14} /> Redo</button>
+                <button onClick={run(() => st().addTable(center()))}><Plus size={14} /> New table</button>
+                <button onClick={run(() => st().addNote(center()))}><StickyNote size={14} /> New note</button>
               </>
             )}
             {view !== 'constellation' && (
@@ -244,13 +254,20 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
               <>
                 <div className="menu-sep">Panels</div>
                 <button onClick={panel('tables')}><Boxes size={14} /> Tables</button>
+                <button onClick={panel('types')}><Puzzle size={14} /> Types</button>
                 <button onClick={panel('health')}><HeartPulse size={14} /> Health</button>
                 <button onClick={panel('paths')}><Route size={14} /> Join paths</button>
+                <button onClick={panel('diff')}><GitCompareArrows size={14} /> Compare</button>
               </>
             )}
             <div className="menu-sep">View</div>
             <button onClick={run(() => st().set({ sqlOpen: !sqlOpen, ...(full ? { sidebar: null } : {}) }))}><Code2 size={14} /> SQL pane {sqlOpen && <small>open</small>}</button>
             <button onClick={run(() => st().set({ focus: { ...focus, enabled: !focus.enabled } }))}><Focus size={14} /> Focus lens {focus.enabled && <small>on</small>}</button>
+            {focus.enabled && (
+              <button onClick={() => st().set({ focus: { ...focus, hops: (focus.hops % 3) + 1 } })}>
+                <span className="menu-glyph">{focus.hops}</span> Lens reach {focus.hops} hop{focus.hops > 1 ? 's' : ''} <small>switch</small>
+              </button>
+            )}
             {view === 'atlas' && <button onClick={run(() => st().set({ portals: !portals }))}><Waypoints size={14} /> Portals {portals && <small>on</small>}</button>}
             {!full && <button onClick={run(onPalette)}><Search size={14} /> Command palette <small>⌘K</small></button>}
             <button onClick={run(toggleTheme)}>{theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />} {theme === 'dark' ? 'Light theme' : 'Dark theme'}</button>
@@ -279,6 +296,9 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
             </button>
           ))}
         </div>
+        <button className="tb-btn" title="Search tables and commands" onClick={onPalette}>
+          <Search size={16} />
+        </button>
         {moreMenu(true)}
       </header>
     );

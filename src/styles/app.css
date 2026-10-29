@@ -769,6 +769,9 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
     border-radius: 14px 14px 10px 10px; animation: sheetUp .22s var(--ease);
   }
   .legend-hint { display: none; }
+  .palette { top: 64px; }
+  .palette [cmdk-input] { font-size: 16px; } /* below 16px iOS zooms the page on focus */
+  .palette [cmdk-item] kbd { display: none; } /* no keyboard to use them */
   .toasts { top: 60px; width: calc(100vw - 24px); }
   .toast { text-align: center; }
 

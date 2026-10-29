@@ -4,7 +4,7 @@ import { useIsPhone } from '../util/phone';
 
 const KEY = 'odbe-phone-notice';
 
-/** On a phone, say up front that this is a reduced version of the app. Dismissed for the session only. */
+/** On a phone, say up front that editing is less comfortable than on a bigger screen. Dismissed for the session only. */
 export function PhoneNotice() {
   const phone = useIsPhone();
   const [hidden, setHidden] = useState(() => {
@@ -19,8 +19,8 @@ export function PhoneNotice() {
     <div className="phone-notice" role="status">
       <Smartphone size={16} />
       <span>
-        <b>Limited phone mode.</b> You can view, explore and share schemas, but editing is cramped and some tools are hidden. For full editing, use a computer or
-        a tablet.
+        <b>Phone mode.</b> Everything works, but editing is cramped and there are no keyboard shortcuts. A computer or tablet is more comfortable for
+        heavy editing.
       </span>
       <button
         className="icon-btn"
