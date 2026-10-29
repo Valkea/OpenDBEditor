@@ -314,8 +314,11 @@ function TableInspector({ id, columnId }: { id: string; columnId?: string }) {
         {issues.length > 0 && (
           <>
             <div className="section-title clickable" onClick={() => setShowIssues(!showIssues)}>
-              {showIssues ? <ChevronDown size={13} /> : <ChevronRight size={13} />} Issues{' '}
-              <span className={`count ${showIssues ? '' : `count-${issues.some((i) => i.severity === 'error') ? 'error' : issues.some((i) => i.severity === 'warning') ? 'warning' : 'info'}`}`}>{issues.length}</span>
+              {showIssues ? <ChevronDown size={13} /> : <ChevronRight size={13} />} Issues
+              {(['error', 'warning', 'info'] as const).map((sev) => {
+                const n = issues.filter((i) => i.severity === sev).length;
+                return n > 0 && <span key={sev} className={`count count-${sev}`} title={`${n} ${sev}${n > 1 ? 's' : ''}`}>{n}</span>;
+              })}
             </div>
             {showIssues && <section className="rule">
               {issues.map((i) => (
