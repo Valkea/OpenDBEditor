@@ -4,6 +4,7 @@ import { parseSql } from '../src/sql/parser';
 import { suggestGroups } from '../src/layout/cluster';
 import { autoLayout, autoLayoutDetailed, type Strategy } from '../src/layout/auto';
 import { CARD_W, cardHeight, countCrossings } from '../src/layout/geometry';
+import { routedCrossings } from '../src/layout/routing';
 import type { Schema } from '../src/model/types';
 
 const V15 = '/Users/z943bm/Dev/genai-dataset-sync-tool/docs/schema-v15.sql';
@@ -58,6 +59,20 @@ describe.runIf(existsSync(V15))('auto-layout on schema-v15', () => {
     console.log('picked', r.strategy);
     console.log('groups', s.groups.map((g) => `${g.name}:${s.tables.filter((t) => t.groupId === g.id).length}`).join(' '));
     console.log('crossings', countCrossings(s), 'size', Math.round(b.w), 'x', Math.round(b.h), 'overlaps', overlaps(s));
+    expect(overlaps(s)).toBe(0);
+  });
+
+  it('never adds crossings to the current drawing', async () => {
+    const s = grouped();
+    apply(s, await autoLayout(s, { direction: 'RIGHT' }));
+    // a hand-made tweak: swap two groups' places
+    const [a, b] = s.groups.map((g) => s.tables.filter((t) => t.groupId === g.id));
+    const da = { x: b[0].x - a[0].x, y: b[0].y - a[0].y };
+    for (const t of a) Object.assign(t, { x: t.x + da.x, y: t.y + da.y });
+    for (const t of b) Object.assign(t, { x: t.x - da.x, y: t.y - da.y });
+    const before = routedCrossings(s);
+    apply(s, await autoLayout(s, { direction: 'RIGHT' }));
+    expect(routedCrossings(s)).toBeLessThanOrEqual(before);
     expect(overlaps(s)).toBe(0);
   });
 

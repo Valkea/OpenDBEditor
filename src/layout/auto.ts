@@ -30,7 +30,8 @@ function getElk() {
   return elkPromise;
 }
 
-export type Strategy = 'compound' | 'islands-down' | 'islands-right' | 'islands-stress' | 'flow';
+/** `current` keeps the drawing as it is, `islands-keep` keeps where each group sits and re-lays out its inside. */
+export type Strategy = 'compound' | 'islands-down' | 'islands-right' | 'islands-stress' | 'islands-keep' | 'current' | 'flow';
 
 export interface LayoutResult {
   pos: Map<string, Pos>;
@@ -42,7 +43,14 @@ const TARGET_ASPECT = 1.7;
 
 /** Lower is better: crossings dominate, then an elongated or sprawling drawing. */
 function score(schema: Schema, pos: Map<string, Pos>, hidden: Set<string>): { score: number; crossings: number } {
-  const probe: Schema = { ...schema, tables: schema.tables.map((t) => ({ ...t, ...pos.get(t.id) })) };
+  // rounded like the final drawing: half a pixel can change how lines are routed
+  const probe: Schema = {
+    ...schema,
+    tables: schema.tables.map((t) => {
+      const p = pos.get(t.id);
+      return p ? { ...t, x: Math.round(p.x), y: Math.round(p.y) } : t;
+    }),
+  };
   const crossings = routedCrossings(probe, hidden);
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, area = 0;
   for (const t of probe.tables) {
@@ -64,23 +72,147 @@ export async function autoLayout(schema: Schema, opts: LayoutOptions): Promise<M
   return (await autoLayoutDetailed(schema, opts)).pos;
 }
 
-/** Try several strategies and keep the cleanest drawing. */
+/** Try several strategies, polish the most promising ones, and keep the cleanest drawing (never one with more crossings than now). */
 export async function autoLayoutDetailed(schema: Schema, opts: LayoutOptions): Promise<LayoutResult> {
   const hidden = opts.hiddenRelations ?? new Set<string>();
   if (opts.mode === 'flow' || opts.only === 'flow') {
     const raw = flowLayout(schema, opts.direction, hidden);
     return { pos: finalize(schema, raw), strategy: 'flow', crossings: score(schema, raw, hidden).crossings };
   }
-  const strategies: Strategy[] = opts.only ? [opts.only] : schema.groups.length ? ['islands-down', 'islands-right', 'islands-stress', 'compound'] : ['compound'];
-  let best: (LayoutResult & { score: number }) | null = null;
+  const placed = schema.tables.length > 1 && schema.tables.some((t) => t.x || t.y);
+  const strategies: Strategy[] = opts.only
+    ? [opts.only]
+    : schema.groups.length
+      ? ['islands-down', 'islands-right', 'islands-stress', 'compound', ...(placed ? (['islands-keep', 'current'] as const) : [])]
+      : ['compound', ...(placed ? (['current'] as const) : [])];
+  const candidates: (LayoutResult & { score: number })[] = [];
   for (const strategy of strategies) {
-    const raw = strategy === 'compound' ? await compoundLayout(schema, opts) : await islandsLayout(schema, opts, strategy);
-    removeBlockOverlaps(schema, raw, () => false);
+    const raw =
+      strategy === 'current'
+        ? new Map(schema.tables.map((t) => [t.id, { x: t.x, y: t.y }]))
+        : strategy === 'compound'
+          ? await compoundLayout(schema, opts)
+          : await islandsLayout(schema, opts, strategy);
+    if (strategy !== 'current') removeBlockOverlaps(schema, raw, () => false);
     const sc = score(schema, raw, hidden);
-    if (!best || sc.score < best.score) best = { pos: raw, strategy, crossings: sc.crossings, score: sc.score };
+    candidates.push({ pos: raw, strategy, crossings: sc.crossings, score: sc.score });
   }
-  const pos = finalize(schema, best!.pos);
-  return { pos, strategy: best!.strategy, crossings: best!.crossings };
+  // polish the best few; `current` always, so a hand-made drawing can only get better
+  const better = (a: { crossings: number; score: number }, b: { crossings: number; score: number }) => a.crossings - b.crossings || a.score - b.score;
+  candidates.sort(better);
+  const polish = candidates.filter((c, i) => i < 2 || c.strategy === 'current' || c.strategy === 'islands-keep');
+  if (!opts.only) {
+    const end = performance.now() + REFINE_MS;
+    for (const [i, c] of polish.entries()) {
+      await new Promise((r) => setTimeout(r)); // let the UI breathe
+      Object.assign(c, refineBlocks(schema, c.pos, hidden, performance.now() + (end - performance.now()) / (polish.length - i)));
+    }
+  }
+  const best = candidates.sort(better)[0];
+  const pos = finalize(schema, best.pos);
+  return { pos, strategy: best.strategy, crossings: best.crossings };
+}
+
+/** Time the local search may take in total, so big schemas stay responsive. */
+const REFINE_MS = 1500;
+
+const clonePos = (pos: Map<string, Pos>) => new Map([...pos].map(([k, p]) => [k, { ...p }]));
+
+/**
+ * Local search on whole blocks (groups and lone tables): mirror a block, or swap two blocks,
+ * and keep the move whenever the drawing gets cleaner. ELK places blocks as boxes and can't
+ * see which side of a group a line enters; this is where most leftover crossings come from.
+ */
+export function refineBlocks(schema: Schema, start: Map<string, Pos>, hidden: Set<string>, deadline = Infinity): { pos: Map<string, Pos>; crossings: number; score: number } {
+  const blocks = new Map<string, string[]>();
+  for (const t of schema.tables) {
+    const k = t.groupId ? `g:${t.groupId}` : t.id;
+    if (!blocks.has(k)) blocks.set(k, []);
+    blocks.get(k)!.push(t.id);
+  }
+  // blocks holding a locked table get pinned back by honourLocks, so moving them gains nothing
+  const isLocked = isLockedFn(schema);
+  const locked = new Set(schema.tables.filter(isLocked).map((t) => t.id));
+  const list = [...blocks.values()].filter((ids) => !ids.some((id) => locked.has(id)));
+  const heightOf = new Map(schema.tables.map((t) => [t.id, cardHeight(t, schema)]));
+  let pos = clonePos(start);
+  let cur = score(schema, pos, hidden);
+  const flip = (p: Map<string, Pos>, ids: string[], axis: 'x' | 'y') => {
+    const size = (id: string) => (axis === 'x' ? CARD_W : heightOf.get(id)!);
+    const lo = Math.min(...ids.map((id) => p.get(id)![axis]));
+    const hi = Math.max(...ids.map((id) => p.get(id)![axis] + size(id)));
+    for (const id of ids) p.get(id)![axis] = lo + hi - p.get(id)![axis] - size(id);
+  };
+  const center = (p: Map<string, Pos>, ids: string[]) => {
+    const r = bounds(ids, schema, p);
+    return { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+  };
+  const moves: ((p: Map<string, Pos>) => void)[] = [];
+  for (const ids of list) {
+    if (ids.length > 1) moves.push((p) => flip(p, ids, 'x'), (p) => flip(p, ids, 'y'));
+  }
+  for (let i = 0; i < list.length; i++)
+    for (let j = i + 1; j < list.length; j++) {
+      const a = list[i];
+      const b = list[j];
+      moves.push((p) => {
+        const ca = center(p, a);
+        const cb = center(p, b);
+        for (const id of a) {
+          p.get(id)!.x += cb.x - ca.x;
+          p.get(id)!.y += cb.y - ca.y;
+        }
+        for (const id of b) {
+          p.get(id)!.x += ca.x - cb.x;
+          p.get(id)!.y += ca.y - cb.y;
+        }
+        removeBlockOverlaps(schema, p, () => false);
+      });
+    }
+  // swap two tables of one group, when their cards fit each other's spot
+  const overlapsAny = (p: Map<string, Pos>, id: string) => {
+    const a = p.get(id)!;
+    const ha = heightOf.get(id)!;
+    return schema.tables.some((t) => {
+      if (t.id === id) return false;
+      const b = p.get(t.id)!;
+      return a.x < b.x + CARD_W + 16 && b.x < a.x + CARD_W + 16 && a.y < b.y + heightOf.get(t.id)! + 16 && b.y < a.y + ha + 16;
+    });
+  };
+  for (const ids of list)
+    for (let i = 0; i < ids.length; i++)
+      for (let j = i + 1; j < ids.length; j++) {
+        const a = ids[i];
+        const b = ids[j];
+        moves.push((p) => {
+          const pa = p.get(a)!;
+          const pb = p.get(b)!;
+          // keep vertical centres so cards of different heights stay in their row
+          const ya = pa.y + heightOf.get(a)! / 2;
+          const yb = pb.y + heightOf.get(b)! / 2;
+          [pa.x, pb.x] = [pb.x, pa.x];
+          pa.y = yb - heightOf.get(a)! / 2;
+          pb.y = ya - heightOf.get(b)! / 2;
+          if (overlapsAny(p, a) || overlapsAny(p, b)) p.clear();
+        });
+      }
+  let improved = true;
+  while (improved && performance.now() < deadline) {
+    improved = false;
+    for (const move of moves) {
+      if (performance.now() >= deadline) break;
+      const next = clonePos(pos);
+      move(next);
+      if (!next.size) continue; // move not possible here
+      const sc = score(schema, next, hidden);
+      if (sc.crossings < cur.crossings || (sc.crossings === cur.crossings && sc.score < cur.score - 1e-6)) {
+        pos = next;
+        cur = sc;
+        improved = true;
+      }
+    }
+  }
+  return { pos, ...cur };
 }
 
 function isLockedFn(schema: Schema) {
@@ -235,6 +367,23 @@ async function islandsLayout(schema: Schema, opts: LayoutOptions, strategy: Stra
     });
     for (const c of res.children ?? []) local.set(c.id, { x: c.x ?? 0, y: c.y ?? 0 });
     size.set(bid, { w: res.width ?? 0, h: res.height ?? 0 });
+  }
+
+  if (strategy === 'islands-keep') {
+    const pos = new Map<string, Pos>();
+    for (const [bid, members] of blocks) {
+      const r = bounds(members.map((m) => m.id), schema, new Map(members.map((m) => [m.id, { x: m.x, y: m.y }])));
+      const { w, h } = size.get(bid)!;
+      const ox = r.x + r.w / 2 - w / 2;
+      const oy = r.y + r.h / 2 - h / 2;
+      for (const t of members) {
+        const l = local.get(t.id)!;
+        const grouped = bid.startsWith('g:');
+        // lone tables are laid out without the group padding
+        pos.set(t.id, { x: ox + l.x + (grouped ? 0 : 36), y: oy + l.y + (grouped ? 0 : 72) });
+      }
+    }
+    return pos;
   }
 
   // phase 2: one edge per inter-island relation (parent island → child island)

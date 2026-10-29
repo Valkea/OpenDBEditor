@@ -321,7 +321,8 @@ export const useStore = create<State>((set, get) => ({
       const pos = await autoLayout(schema, { direction, mode: arrangeMode, hiddenRelations: hidden });
       await get().animateTo(pos);
       const after = routedCrossings(get().schema, hidden);
-      if (schema.tables.some((t) => t.x || t.y)) get().toast(`Auto-layout done · line crossings ${before} → ${after}`);
+      if (schema.tables.some((t) => t.x || t.y))
+        get().toast(after === before ? `No cleaner arrangement found · ${after} line crossings` : `Auto-layout done · line crossings ${before} → ${after}`);
     } catch (e) {
       console.error(e);
       get().toast(`Layout failed: ${(e as Error).message}`, 'err');
