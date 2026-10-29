@@ -770,10 +770,14 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 @keyframes ribbonIn { from { opacity: 0; transform: translateY(-6px); } }
 
 @media (max-width: 760px) {
-  .topbar-phone { gap: 6px; padding: 0 8px; }
+  .topbar-phone { gap: 2px; padding: 0 6px; }
+  .topbar-phone .brand { padding: 0 4px 0 0; }
   .topbar-phone .brand span { display: none; }
-  .topbar-phone .schema-name { flex: 1; width: auto; min-width: 0; padding: 5px 6px; }
-  .topbar-phone .segmented button { padding: 5px 8px; }
+  .topbar-phone .schema-name { flex: 0 1 150px; width: auto; min-width: 0; padding: 5px 4px; }
+  .topbar-phone .local-badge { padding: 0 6px; margin: 0 2px; }
+  .topbar-phone .tb-btn { padding: 0 6px; }
+  .topbar-phone .tb-group { gap: 0; padding-left: 3px; margin-left: 1px; }
+  .topbar-phone .menu-pop { position: fixed; top: 56px; left: 8px; right: auto; width: min(300px, calc(100vw - 16px)); }
   .local-pop { position: fixed; top: 56px; left: 8px; right: 8px; width: auto; max-height: calc(100dvh - 72px); overflow-y: auto; }
 
   /* panels become full-screen sheets over the diagram */

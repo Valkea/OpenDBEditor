@@ -1,36 +1,30 @@
 import {
   Boxes,
   Code2,
-  Download,
-  FileUp,
   Focus,
-  FolderOpen,
   GitCompareArrows,
   HeartPulse,
-  Image,
   LayoutGrid,
-  Link2,
   Loader2,
   Moon,
   PanelLeft,
   Plus,
   Puzzle,
-  Redo2,
   Route,
   SlidersHorizontal,
   StickyNote,
   Sun,
   Table2,
-  Undo2,
   Waypoints,
   Workflow,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { type SidebarTab, useStore } from '../store/store';
 import { useIsPhone } from '../util/phone';
+import { VIEWS } from './TopBar';
 import { useActions } from './useActions';
 
-type Section = 'file' | 'add' | 'layout' | 'panels' | 'view';
+type Section = 'add' | 'layout' | 'panels' | 'view';
 
 /** One tool in the ribbon: icon above a short label. */
 function Tool({ icon, label, on, disabled, onClick }: { icon: React.ReactNode; label: string; on?: boolean; disabled?: boolean; onClick: () => unknown }) {
@@ -43,7 +37,7 @@ function Tool({ icon, label, on, disabled, onClick }: { icon: React.ReactNode; l
 }
 
 /**
- * Phone only: a narrow bar of icons down the left edge. Undo and redo act at once; the other icons open a
+ * Phone only: a narrow bar of icons down the left edge. The view buttons act at once; the other icons open a
  * ribbon of tools along the top of the diagram. One-shot tools close the ribbon, switches keep it open.
  */
 export function PhoneBar() {
@@ -52,8 +46,6 @@ export function PhoneBar() {
   const ref = useRef<HTMLDivElement>(null);
   const schema = useStore((s) => s.schema);
   const view = schema.view ?? 'atlas';
-  const canUndo = useStore((s) => s.past.length > 0);
-  const canRedo = useStore((s) => s.future.length > 0);
   const sidebar = useStore((s) => s.sidebar);
   const sqlOpen = useStore((s) => s.sqlOpen);
   const theme = useStore((s) => s.theme);
@@ -64,7 +56,7 @@ export function PhoneBar() {
   const arrangeMode = useStore((s) => s.arrangeMode);
   const directionIgnored = arrangeMode === 'groups' && schema.groups.length > 0;
   const st = useStore.getState;
-  const { share, openFile, exportSql, exportImage, toggleTheme, center } = useActions();
+  const { toggleTheme, center } = useActions();
 
   useEffect(() => {
     if (!open) return;
@@ -87,7 +79,6 @@ export function PhoneBar() {
   const panel = (id: SidebarTab) => once(() => st().set({ sidebar: sidebar === id ? null : id, sqlOpen: false }));
   const toggle = (s: Section) => setOpen(open === s ? null : s);
   const SECTIONS: { id: Section; label: string; icon: typeof Plus; hidden?: boolean }[] = [
-    { id: 'file', label: 'File', icon: FolderOpen },
     { id: 'add', label: 'Add', icon: Plus },
     { id: 'layout', label: 'Layout', icon: LayoutGrid, hidden: view === 'constellation' },
     { id: 'panels', label: 'Panels', icon: PanelLeft },
@@ -97,30 +88,20 @@ export function PhoneBar() {
   return (
     <div className="phonebar" ref={ref}>
       <nav className="phonebar-icons">
+        {VIEWS.map((v) => (
+          <button key={v.id} className={`rail-btn ${view === v.id ? 'is-active' : ''}`} title={v.label} aria-pressed={view === v.id} onClick={() => st().setView(v.id)}>
+            <v.icon size={18} />
+          </button>
+        ))}
+        <span className="phonebar-sep" />
         {SECTIONS.filter((s) => !s.hidden).map((s) => (
           <button key={s.id} className={`rail-btn ${open === s.id ? 'is-active' : ''}`} title={s.label} aria-expanded={open === s.id} onClick={() => toggle(s.id)}>
             <s.icon size={18} />
           </button>
         ))}
-        <span className="phonebar-sep" />
-        <button className="rail-btn" title="Undo" disabled={!canUndo} onClick={() => st().undo()}>
-          <Undo2 size={18} />
-        </button>
-        <button className="rail-btn" title="Redo" disabled={!canRedo} onClick={() => st().redo()}>
-          <Redo2 size={18} />
-        </button>
       </nav>
       {open && (
         <div className="ribbon" role="toolbar" aria-label={SECTIONS.find((s) => s.id === open)?.label}>
-          {open === 'file' && (
-            <>
-              <Tool icon={<FileUp size={18} />} label="Open" onClick={once(openFile)} />
-              <Tool icon={<Download size={18} />} label="Export" onClick={once(() => exportSql(true))} />
-              <Tool icon={<Code2 size={18} />} label="Plain SQL" onClick={once(() => exportSql(false))} />
-              <Tool icon={<Image size={18} />} label="PNG" onClick={once(exportImage)} />
-              <Tool icon={<Link2 size={18} />} label="Share" onClick={once(share)} />
-            </>
-          )}
           {open === 'add' && (
             <>
               <Tool icon={<Table2 size={18} />} label="Table" onClick={once(() => st().addTable(center()))} />

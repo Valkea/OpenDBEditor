@@ -31,7 +31,7 @@ import { download, slug } from '../util/files';
 import { Promises } from './Promises';
 import { useActions } from './useActions';
 
-const VIEWS: { id: ViewMode; label: string; icon: typeof MapIcon; hint: string }[] = [
+export const VIEWS: { id: ViewMode; label: string; icon: typeof MapIcon; hint: string }[] = [
   { id: 'atlas', label: 'Atlas', icon: MapIcon, hint: 'Domains as regions, semantic zoom (1)' },
   { id: 'blueprint', label: 'Blueprint', icon: Ruler, hint: 'Classic full-detail ERD (2)' },
   { id: 'constellation', label: 'Constellation', icon: Orbit, hint: 'Explore as a graph; double-click a star for orbits (3)' },
@@ -182,11 +182,28 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
               </button>
             )}
             {view === 'atlas' && <button onClick={run(() => st().set({ portals: !portals }))}><Waypoints size={14} /> Portals {portals && <small>on</small>}</button>}
-            <button onClick={run(onPalette)}><Search size={14} /> Command palette <small>⌘K</small></button>
             <button onClick={run(toggleTheme)}>{theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />} {theme === 'dark' ? 'Light theme' : 'Dark theme'}</button>
           </>
         );
       }}
+    </Menu>
+  );
+
+  const exportMenu = (
+    <Menu label={phone ? '' : 'Export'} icon={<Download size={15} />}>
+      {(close) => (
+        <>
+          <button onClick={() => { exportSql(true); close(); }}>
+            <Download size={14} /> SQL + layout <small>re-opens with positions</small>
+          </button>
+          <button onClick={() => { exportSql(false); close(); }}>
+            <Code2 size={14} /> Plain SQL
+          </button>
+          <button onClick={() => { close(); void exportImage(); }}>
+            <Image size={14} /> PNG image
+          </button>
+        </>
+      )}
     </Menu>
   );
 
@@ -202,16 +219,29 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
           aria-label="Schema name"
         />
         <LocalBadge />
-        <div className="segmented" role="tablist">
-          {VIEWS.map((v) => (
-            <button key={v.id} role="tab" aria-selected={view === v.id} className={view === v.id ? 'is-on' : ''} title={v.label} onClick={() => st().setView(v.id)}>
-              <v.icon size={15} />
-            </button>
-          ))}
+        <div className="tb-group tb-file">
+          <button className="tb-btn" title="Open a .sql file" onClick={() => void openFile()}>
+            <FileUp size={16} />
+          </button>
+          {exportMenu}
         </div>
-        <button className="tb-btn" title="Search tables and commands" onClick={onPalette}>
-          <Search size={16} />
-        </button>
+        <div className="tb-group">
+          <button className="tb-btn" title="Undo" disabled={!canUndo} onClick={() => st().undo()}>
+            <Undo2 size={16} />
+          </button>
+          <button className="tb-btn" title="Redo" disabled={!canRedo} onClick={() => st().redo()}>
+            <Redo2 size={16} />
+          </button>
+        </div>
+        <span className="grow" />
+        <div className="tb-group">
+          <button className="tb-btn" title="Search tables and commands" onClick={onPalette}>
+            <Search size={16} />
+          </button>
+          <button className="tb-btn primary" title="Copy a link that contains the whole schema" onClick={share}>
+            <Link2 size={16} />
+          </button>
+        </div>
       </header>
     );
 
@@ -235,21 +265,7 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
           <FileUp size={15} />
           <span className="tb-label">Open</span>
         </button>
-        <Menu label="Export" icon={<Download size={15} />}>
-          {(close) => (
-            <>
-              <button onClick={() => { exportSql(true); close(); }}>
-                <Download size={14} /> SQL + layout <small>re-opens with positions</small>
-              </button>
-              <button onClick={() => { exportSql(false); close(); }}>
-                <Code2 size={14} /> Plain SQL
-              </button>
-              <button onClick={() => { close(); void exportImage(); }}>
-                <Image size={14} /> PNG image
-              </button>
-            </>
-          )}
-        </Menu>
+        {exportMenu}
       </div>
       <div className="tb-group">
         <button className="tb-btn" title="Undo (⌘Z)" disabled={!canUndo} onClick={() => st().undo()}>
@@ -315,9 +331,6 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
           <Code2 size={15} />
           <span className="tb-label tb-label-2">SQL</span>
         </button>
-        <button className="tb-btn" title="Command palette (⌘K)" onClick={onPalette}>
-          <Search size={15} />
-        </button>
         <button
           className="tb-btn"
           title="Toggle theme"
@@ -328,6 +341,9 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
       </div>
       {moreMenu}
       <div className="tb-group">
+        <button className="tb-btn" title="Command palette (⌘K)" onClick={onPalette}>
+          <Search size={15} />
+        </button>
         <button className="tb-btn primary" title="Copy a link that contains the whole schema: whoever opens it gets the schema, no server involved. Bookmark the page to save your work." onClick={share}>
           <Link2 size={15} />
           <span className="tb-label">Share</span>
