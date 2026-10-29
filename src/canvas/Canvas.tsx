@@ -558,6 +558,7 @@ export function Canvas() {
   return (
     <div className={`canvas view-${view} detail-${detail}`} data-theme-canvas={theme}>
       <ReactFlow
+        proOptions={{ hideAttribution: true }} // React Flow (MIT) is credited in the README
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
