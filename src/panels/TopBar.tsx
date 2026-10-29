@@ -171,65 +171,7 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
         aria-label="Schema name"
       />
       <LocalBadge />
-      <div className="segmented" role="tablist">
-        {VIEWS.map((v) => (
-          <button key={v.id} role="tab" aria-selected={view === v.id} className={view === v.id ? 'is-on' : ''} title={v.hint} onClick={() => st().setView(v.id)}>
-            <v.icon size={15} />
-            <span className="tb-label">{v.label}</span>
-          </button>
-        ))}
-      </div>
-      <span className="grow" />
-      <div className="tb-group">
-        {view !== 'constellation' && (
-          <div className="split">
-            <button className="tb-btn" title="Auto-layout (L): clusters by group, minimises crossings, keeps locked tables" disabled={busy} onClick={() => void st().runAutoLayout()}>
-              {busy ? <Loader2 size={15} className="spin" /> : <LayoutGrid size={15} />}
-              <span className="tb-label">Arrange</span>
-            </button>
-            <button
-              className="tb-btn tb-mini"
-              title={arrangeMode === 'groups' ? 'Arrange by group: islands per domain, fewest crossings (click: by dependency)' : 'Arrange by dependency: referenced tables first, groups as bands (click: by group)'}
-              onClick={() => st().set({ arrangeMode: arrangeMode === 'groups' ? 'flow' : 'groups' })}
-            >
-              {arrangeMode === 'groups' ? <Boxes size={14} /> : <Workflow size={14} />}
-            </button>
-            <button
-              className="tb-btn tb-mini"
-              disabled={directionIgnored}
-              title={directionIgnored ? 'Direction: only used when arranging by dependency' : `Direction: ${direction === 'RIGHT' ? 'left → right' : 'top → bottom'}`}
-              onClick={() => st().set({ direction: direction === 'RIGHT' ? 'DOWN' : 'RIGHT' })}>
-              {direction === 'RIGHT' ? '→' : '↓'}
-            </button>
-          </div>
-        )}
-        <div className="split">
-          <button className={`tb-btn ${focus.enabled ? 'is-on' : ''}`} title="Focus lens (F): fade tables beyond N hops of the selection" onClick={() => st().set({ focus: { ...focus, enabled: !focus.enabled } })}>
-            <Focus size={15} />
-            <span className="tb-label">Lens</span>
-          </button>
-          {focus.enabled && (
-            <button className="tb-btn tb-mini" title="Hops" onClick={() => st().set({ focus: { ...focus, hops: (focus.hops % 3) + 1 } })}>
-              {focus.hops}
-            </button>
-          )}
-        </div>
-        {view === 'atlas' && (
-          <button className={`tb-btn ${portals ? 'is-on' : ''}`} title="Portals: references to hub tables (≥5 inbound FKs) become chips instead of long lines" onClick={() => st().set({ portals: !portals })}>
-            <Waypoints size={15} />
-            <span className="tb-label">Portals</span>
-          </button>
-        )}
-      </div>
-      <div className="tb-group">
-        <button className="tb-btn" title="Undo (⌘Z)" disabled={!canUndo} onClick={() => st().undo()}>
-          <Undo2 size={15} />
-        </button>
-        <button className="tb-btn" title="Redo (⇧⌘Z)" disabled={!canRedo} onClick={() => st().redo()}>
-          <Redo2 size={15} />
-        </button>
-      </div>
-      <div className="tb-group">
+      <div className="tb-group tb-file">
         <button
           className="tb-btn"
           title="Open a .sql file"
@@ -267,15 +209,70 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
             </>
           )}
         </Menu>
-        <button className="tb-btn primary" title="Copy a link that contains the whole schema: whoever opens it gets the schema, no server involved. Bookmark the page to save your work." onClick={share}>
-          <Link2 size={15} />
-          <span className="tb-label">Share</span>
+      </div>
+      <div className="tb-group">
+        <button className="tb-btn" title="Undo (⌘Z)" disabled={!canUndo} onClick={() => st().undo()}>
+          <Undo2 size={15} />
         </button>
+        <button className="tb-btn" title="Redo (⇧⌘Z)" disabled={!canRedo} onClick={() => st().redo()}>
+          <Redo2 size={15} />
+        </button>
+      </div>
+      <span className="grow" />
+      <div className="segmented" role="tablist">
+        {VIEWS.map((v) => (
+          <button key={v.id} role="tab" aria-selected={view === v.id} className={view === v.id ? 'is-on' : ''} title={v.hint} onClick={() => st().setView(v.id)}>
+            <v.icon size={15} />
+            <span className="tb-label tb-label-2">{v.label}</span>
+          </button>
+        ))}
+      </div>
+      <span className="grow" />
+      <div className="tb-group">
+        {view !== 'constellation' && (
+          <div className="split">
+            <button className="tb-btn" title="Auto-layout (L): clusters by group, minimises crossings, keeps locked tables" disabled={busy} onClick={() => void st().runAutoLayout()}>
+              {busy ? <Loader2 size={15} className="spin" /> : <LayoutGrid size={15} />}
+              <span className="tb-label tb-label-2">Arrange</span>
+            </button>
+            <button
+              className="tb-btn tb-mini"
+              title={arrangeMode === 'groups' ? 'Arrange by group: islands per domain, fewest crossings (click: by dependency)' : 'Arrange by dependency: referenced tables first, groups as bands (click: by group)'}
+              onClick={() => st().set({ arrangeMode: arrangeMode === 'groups' ? 'flow' : 'groups' })}
+            >
+              {arrangeMode === 'groups' ? <Boxes size={14} /> : <Workflow size={14} />}
+            </button>
+            <button
+              className="tb-btn tb-mini"
+              disabled={directionIgnored}
+              title={directionIgnored ? 'Direction: only used when arranging by dependency' : `Direction: ${direction === 'RIGHT' ? 'left → right' : 'top → bottom'}`}
+              onClick={() => st().set({ direction: direction === 'RIGHT' ? 'DOWN' : 'RIGHT' })}>
+              {direction === 'RIGHT' ? '→' : '↓'}
+            </button>
+          </div>
+        )}
+        <div className="split">
+          <button className={`tb-btn ${focus.enabled ? 'is-on' : ''}`} title="Focus lens (F): fade tables beyond N hops of the selection" onClick={() => st().set({ focus: { ...focus, enabled: !focus.enabled } })}>
+            <Focus size={15} />
+            <span className="tb-label tb-label-2">Lens</span>
+          </button>
+          {focus.enabled && (
+            <button className="tb-btn tb-mini" title="Hops" onClick={() => st().set({ focus: { ...focus, hops: (focus.hops % 3) + 1 } })}>
+              {focus.hops}
+            </button>
+          )}
+        </div>
+        {view === 'atlas' && (
+          <button className={`tb-btn ${portals ? 'is-on' : ''}`} title="Portals: references to hub tables (≥5 inbound FKs) become chips instead of long lines" onClick={() => st().set({ portals: !portals })}>
+            <Waypoints size={15} />
+            <span className="tb-label tb-label-2">Portals</span>
+          </button>
+        )}
       </div>
       <div className="tb-group">
         <button className={`tb-btn ${sqlOpen ? 'is-on' : ''}`} title="Live SQL pane (S)" onClick={() => st().set({ sqlOpen: !sqlOpen })}>
           <Code2 size={15} />
-          <span className="tb-label">SQL</span>
+          <span className="tb-label tb-label-2">SQL</span>
         </button>
         <button className="tb-btn" title="Command palette (⌘K)" onClick={onPalette}>
           <Search size={15} />
@@ -294,6 +291,12 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
           }}
         >
           {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+        </button>
+      </div>
+      <div className="tb-group">
+        <button className="tb-btn primary" title="Copy a link that contains the whole schema: whoever opens it gets the schema, no server involved. Bookmark the page to save your work." onClick={share}>
+          <Link2 size={15} />
+          <span className="tb-label">Share</span>
         </button>
       </div>
     </header>

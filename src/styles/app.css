@@ -152,6 +152,8 @@ input, textarea, select { font: inherit; color: inherit; }
 .tb-btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, white); color: var(--accent-ink); }
 .tb-mini { padding: 0 7px; font-family: var(--mono); font-size: 12px; }
 .split { display: flex; }
+/* secondary labels go first, so Open / Export / Share keep theirs longer */
+@media (max-width: 1600px) { .tb-label-2 { display: none; } }
 @media (max-width: 1280px) { .tb-label { display: none; } .schema-name { width: 140px; } }
 
 .menu { position: relative; }
@@ -160,6 +162,7 @@ input, textarea, select { font: inherit; color: inherit; }
   background: var(--panel-solid); border: 1px solid var(--line-strong); border-radius: 12px;
   box-shadow: 0 20px 50px -12px rgba(0, 0, 0, .5); z-index: 50;
 }
+.tb-file .menu-pop { right: auto; left: 0; } /* Export sits on the left: open towards the page */
 .menu-pop button {
   width: 100%; display: flex; align-items: center; gap: 8px; text-align: left; border: 0; background: transparent;
   padding: 8px 10px; border-radius: 8px; cursor: pointer;
