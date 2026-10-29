@@ -1,12 +1,9 @@
-import { getNodesBounds, getViewportForBounds, useReactFlow } from '@xyflow/react';
 import {
   Boxes,
   Code2,
   Download,
   FileUp,
   Focus,
-  GitCompareArrows,
-  HeartPulse,
   Image,
   LayoutGrid,
   Link2,
@@ -15,15 +12,10 @@ import {
   Moon,
   MoreHorizontal,
   Orbit,
-  Plus,
-  Puzzle,
   Redo2,
-  Route,
   Ruler,
   Search,
   ShieldCheck,
-  Smartphone,
-  StickyNote,
   Sun,
   Undo2,
   Waypoints,
@@ -32,12 +24,12 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { ViewMode } from '../model/types';
-import { encodeSchema, shareUrl } from '../share/codec';
 import { generateSql } from '../sql/generator';
-import { type SidebarTab, useStore } from '../store/store';
+import { useStore } from '../store/store';
 import { useIsPhone } from '../util/phone';
-import { copyText, download, pickFile, slug } from '../util/files';
+import { download, slug } from '../util/files';
 import { Promises } from './Promises';
+import { useActions } from './useActions';
 
 const VIEWS: { id: ViewMode; label: string; icon: typeof MapIcon; hint: string }[] = [
   { id: 'atlas', label: 'Atlas', icon: MapIcon, hint: 'Domains as regions, semantic zoom (1)' },
@@ -64,20 +56,6 @@ function Menu({ label, icon, children, className = '' }: { label: string; icon: 
       {open && <div className="menu-pop">{children(() => setOpen(false))}</div>}
     </div>
   );
-}
-
-export async function exportPng(rf: ReturnType<typeof useReactFlow>, theme: string) {
-  const { toPng } = await import('html-to-image');
-  const nodes = rf.getNodes();
-  if (!nodes.length) return;
-  const b = getNodesBounds(nodes);
-  const scale = 2;
-  const w = Math.min(12000, Math.round((b.width + 160) * scale));
-  const h = Math.min(12000, Math.round((b.height + 160) * scale));
-  const vp = getViewportForBounds(b, w, h, 0.05, 4, 0.04);
-  const el = document.querySelector('.react-flow__viewport') as HTMLElement;
-  const bg = getComputedStyle(document.querySelector('.canvas') as HTMLElement).getPropertyValue('--canvas-bg').trim() || (theme === 'dark' ? '#0b0d12' : '#f7f7f5');
-  return toPng(el, { backgroundColor: bg, width: w, height: h, style: { width: `${w}px`, height: `${h}px`, transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})` } });
 }
 
 function useOnline() {
@@ -168,77 +146,22 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
   // arranging by group tries several orientations and keeps the cleanest, so the direction has no say
   const directionIgnored = arrangeMode === 'groups' && schema.groups.length > 0;
   const st = useStore.getState;
-  const rf = useReactFlow();
   const phone = useIsPhone();
+  const { share, openFile, exportSql, exportImage, toggleTheme } = useActions();
 
-  const share = async () => {
-    const url = shareUrl(encodeSchema(st().schema));
-    window.history.replaceState(null, '', url);
-    if (await copyText(url)) st().toast(`Link copied · ${(url.length / 1024).toFixed(1)} kB · the schema lives in the link itself, no server stores it`);
-  };
-
-  const openFile = async () => {
-    const f = await pickFile();
-    if (f) await st().importSql(await f.text(), f.name);
-  };
-  const exportSql = (embedLayout: boolean) => download(`${slug(schema.name)}.sql`, generateSql(schema, embedLayout ? { embedLayout } : undefined), 'application/sql');
-  const exportImage = async () => {
-    const url = await exportPng(rf, theme);
-    if (!url) return;
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${slug(schema.name)}-${view}.png`;
-    a.click();
-  };
-  const toggleTheme = () => {
-    const t = theme === 'dark' ? 'light' : 'dark';
-    st().set({ theme: t });
-    try {
-      localStorage.setItem('odbe-theme', t);
-    } catch {
-      /* ignore */
-    }
-  };
-
-  /** ⋯ menu: everything on a phone; on a narrow desktop window, the tools that no longer fit in the bar. */
-  const moreMenu = (full: boolean) => (
-    <Menu label="" icon={<MoreHorizontal size={18} />} className={full ? 'phone-menu' : 'tb-more'}>
+  /** ⋯ menu on a narrow desktop window: the tools that no longer fit in the bar. (On a phone they live in the side bar.) */
+  const moreMenu = (
+    <Menu label="" icon={<MoreHorizontal size={18} />} className="tb-more">
       {(close) => {
         const run = (fn: () => unknown) => () => {
           close();
           void fn();
         };
-        const panel = (id: SidebarTab) => run(() => st().set({ sidebar: st().sidebar === id ? null : id, sqlOpen: false }));
-        const center = () => {
-          const c = rf.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-          return { x: c.x - 140, y: c.y - 60 };
-        };
         return (
           <>
-            {full && (
-              <>
-                <div className="menu-note">
-                  <Smartphone size={14} />
-                  <span>
-                    <b>Phone mode.</b> Everything works, but editing is cramped and there are no keyboard shortcuts. A computer or tablet is more comfortable.
-                  </span>
-                </div>
-                <div className="menu-sep">File</div>
-                <button onClick={run(openFile)}><FileUp size={14} /> Open a .sql file</button>
-                <button onClick={run(() => exportSql(true))}><Download size={14} /> Export SQL + layout</button>
-                <button onClick={run(() => exportSql(false))}><Code2 size={14} /> Export plain SQL</button>
-                <button onClick={run(exportImage)}><Image size={14} /> Export PNG</button>
-                <button onClick={run(share)}><Link2 size={14} /> Copy share link</button>
-                <div className="menu-sep">Edit</div>
-                <button disabled={!canUndo} onClick={run(() => st().undo())}><Undo2 size={14} /> Undo</button>
-                <button disabled={!canRedo} onClick={run(() => st().redo())}><Redo2 size={14} /> Redo</button>
-                <button onClick={run(() => st().addTable(center()))}><Plus size={14} /> New table</button>
-                <button onClick={run(() => st().addNote(center()))}><StickyNote size={14} /> New note</button>
-              </>
-            )}
             {view !== 'constellation' && (
               <>
-                {!full && <div className="menu-sep">Layout</div>}
+                <div className="menu-sep">Layout</div>
                 <button disabled={busy} onClick={run(() => st().runAutoLayout())}><LayoutGrid size={14} /> Arrange</button>
                 <button onClick={() => st().set({ arrangeMode: arrangeMode === 'groups' ? 'flow' : 'groups' })}>
                   {arrangeMode === 'groups' ? <Boxes size={14} /> : <Workflow size={14} />} Arrange by {arrangeMode === 'groups' ? 'group' : 'dependency'} <small>switch</small>
@@ -250,18 +173,8 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
                 )}
               </>
             )}
-            {full && (
-              <>
-                <div className="menu-sep">Panels</div>
-                <button onClick={panel('tables')}><Boxes size={14} /> Tables</button>
-                <button onClick={panel('types')}><Puzzle size={14} /> Types</button>
-                <button onClick={panel('health')}><HeartPulse size={14} /> Health</button>
-                <button onClick={panel('paths')}><Route size={14} /> Join paths</button>
-                <button onClick={panel('diff')}><GitCompareArrows size={14} /> Compare</button>
-              </>
-            )}
             <div className="menu-sep">View</div>
-            <button onClick={run(() => st().set({ sqlOpen: !sqlOpen, ...(full ? { sidebar: null } : {}) }))}><Code2 size={14} /> SQL pane {sqlOpen && <small>open</small>}</button>
+            <button onClick={run(() => st().set({ sqlOpen: !sqlOpen }))}><Code2 size={14} /> SQL pane {sqlOpen && <small>open</small>}</button>
             <button onClick={run(() => st().set({ focus: { ...focus, enabled: !focus.enabled } }))}><Focus size={14} /> Focus lens {focus.enabled && <small>on</small>}</button>
             {focus.enabled && (
               <button onClick={() => st().set({ focus: { ...focus, hops: (focus.hops % 3) + 1 } })}>
@@ -269,7 +182,7 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
               </button>
             )}
             {view === 'atlas' && <button onClick={run(() => st().set({ portals: !portals }))}><Waypoints size={14} /> Portals {portals && <small>on</small>}</button>}
-            {!full && <button onClick={run(onPalette)}><Search size={14} /> Command palette <small>⌘K</small></button>}
+            <button onClick={run(onPalette)}><Search size={14} /> Command palette <small>⌘K</small></button>
             <button onClick={run(toggleTheme)}>{theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />} {theme === 'dark' ? 'Light theme' : 'Dark theme'}</button>
           </>
         );
@@ -299,7 +212,6 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
         <button className="tb-btn" title="Search tables and commands" onClick={onPalette}>
           <Search size={16} />
         </button>
-        {moreMenu(true)}
       </header>
     );
 
@@ -414,7 +326,7 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
           {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
         </button>
       </div>
-      {moreMenu(false)}
+      {moreMenu}
       <div className="tb-group">
         <button className="tb-btn primary" title="Copy a link that contains the whole schema: whoever opens it gets the schema, no server involved. Bookmark the page to save your work." onClick={share}>
           <Link2 size={15} />

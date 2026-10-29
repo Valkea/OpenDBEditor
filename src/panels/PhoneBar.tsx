@@ -1,0 +1,175 @@
+import {
+  Boxes,
+  Code2,
+  Download,
+  FileUp,
+  Focus,
+  FolderOpen,
+  GitCompareArrows,
+  HeartPulse,
+  Image,
+  LayoutGrid,
+  Link2,
+  Loader2,
+  Moon,
+  PanelLeft,
+  Plus,
+  Puzzle,
+  Redo2,
+  Route,
+  SlidersHorizontal,
+  StickyNote,
+  Sun,
+  Table2,
+  Undo2,
+  Waypoints,
+  Workflow,
+} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { type SidebarTab, useStore } from '../store/store';
+import { useIsPhone } from '../util/phone';
+import { useActions } from './useActions';
+
+type Section = 'file' | 'add' | 'layout' | 'panels' | 'view';
+
+/** One tool in the ribbon: icon above a short label. */
+function Tool({ icon, label, on, disabled, onClick }: { icon: React.ReactNode; label: string; on?: boolean; disabled?: boolean; onClick: () => unknown }) {
+  return (
+    <button className={`ribbon-btn ${on ? 'is-on' : ''}`} disabled={disabled} onClick={() => void onClick()}>
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
+}
+
+/**
+ * Phone only: a narrow bar of icons down the left edge. Undo and redo act at once; the other icons open a
+ * ribbon of tools along the top of the diagram. One-shot tools close the ribbon, switches keep it open.
+ */
+export function PhoneBar() {
+  const phone = useIsPhone();
+  const [open, setOpen] = useState<Section | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const schema = useStore((s) => s.schema);
+  const view = schema.view ?? 'atlas';
+  const canUndo = useStore((s) => s.past.length > 0);
+  const canRedo = useStore((s) => s.future.length > 0);
+  const sidebar = useStore((s) => s.sidebar);
+  const sqlOpen = useStore((s) => s.sqlOpen);
+  const theme = useStore((s) => s.theme);
+  const focus = useStore((s) => s.focus);
+  const portals = useStore((s) => s.portals);
+  const busy = useStore((s) => s.layoutBusy);
+  const direction = useStore((s) => s.direction);
+  const arrangeMode = useStore((s) => s.arrangeMode);
+  const directionIgnored = arrangeMode === 'groups' && schema.groups.length > 0;
+  const st = useStore.getState;
+  const { share, openFile, exportSql, exportImage, toggleTheme, center } = useActions();
+
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(null);
+    // pointerdown + capture: also fires for taps, before the canvas can swallow them
+    window.addEventListener('pointerdown', h, true);
+    return () => window.removeEventListener('pointerdown', h, true);
+  }, [open]);
+  // the layout tools mean nothing in the constellation view
+  useEffect(() => {
+    if (view === 'constellation' && open === 'layout') setOpen(null);
+  }, [view, open]);
+
+  if (!phone) return null;
+
+  const once = (fn: () => unknown) => () => {
+    setOpen(null);
+    void fn();
+  };
+  const panel = (id: SidebarTab) => once(() => st().set({ sidebar: sidebar === id ? null : id, sqlOpen: false }));
+  const toggle = (s: Section) => setOpen(open === s ? null : s);
+  const SECTIONS: { id: Section; label: string; icon: typeof Plus; hidden?: boolean }[] = [
+    { id: 'file', label: 'File', icon: FolderOpen },
+    { id: 'add', label: 'Add', icon: Plus },
+    { id: 'layout', label: 'Layout', icon: LayoutGrid, hidden: view === 'constellation' },
+    { id: 'panels', label: 'Panels', icon: PanelLeft },
+    { id: 'view', label: 'View', icon: SlidersHorizontal },
+  ];
+
+  return (
+    <div className="phonebar" ref={ref}>
+      <nav className="phonebar-icons">
+        {SECTIONS.filter((s) => !s.hidden).map((s) => (
+          <button key={s.id} className={`rail-btn ${open === s.id ? 'is-active' : ''}`} title={s.label} aria-expanded={open === s.id} onClick={() => toggle(s.id)}>
+            <s.icon size={18} />
+          </button>
+        ))}
+        <span className="phonebar-sep" />
+        <button className="rail-btn" title="Undo" disabled={!canUndo} onClick={() => st().undo()}>
+          <Undo2 size={18} />
+        </button>
+        <button className="rail-btn" title="Redo" disabled={!canRedo} onClick={() => st().redo()}>
+          <Redo2 size={18} />
+        </button>
+      </nav>
+      {open && (
+        <div className="ribbon" role="toolbar" aria-label={SECTIONS.find((s) => s.id === open)?.label}>
+          {open === 'file' && (
+            <>
+              <Tool icon={<FileUp size={18} />} label="Open" onClick={once(openFile)} />
+              <Tool icon={<Download size={18} />} label="Export" onClick={once(() => exportSql(true))} />
+              <Tool icon={<Code2 size={18} />} label="Plain SQL" onClick={once(() => exportSql(false))} />
+              <Tool icon={<Image size={18} />} label="PNG" onClick={once(exportImage)} />
+              <Tool icon={<Link2 size={18} />} label="Share" onClick={once(share)} />
+            </>
+          )}
+          {open === 'add' && (
+            <>
+              <Tool icon={<Table2 size={18} />} label="Table" onClick={once(() => st().addTable(center()))} />
+              <Tool icon={<StickyNote size={18} />} label="Note" onClick={once(() => st().addNote(center()))} />
+            </>
+          )}
+          {open === 'layout' && (
+            <>
+              <Tool icon={busy ? <Loader2 size={18} className="spin" /> : <LayoutGrid size={18} />} label="Arrange" disabled={busy} onClick={once(() => st().runAutoLayout())} />
+              <Tool
+                icon={arrangeMode === 'groups' ? <Boxes size={18} /> : <Workflow size={18} />}
+                label={arrangeMode === 'groups' ? 'By group' : 'By dependency'}
+                onClick={() => st().set({ arrangeMode: arrangeMode === 'groups' ? 'flow' : 'groups' })}
+              />
+              {!directionIgnored && (
+                <Tool
+                  icon={<span className="ribbon-glyph">{direction === 'RIGHT' ? '→' : '↓'}</span>}
+                  label={direction === 'RIGHT' ? 'Left → right' : 'Top → bottom'}
+                  onClick={() => st().set({ direction: direction === 'RIGHT' ? 'DOWN' : 'RIGHT' })}
+                />
+              )}
+            </>
+          )}
+          {open === 'panels' && (
+            <>
+              <Tool icon={<Boxes size={18} />} label="Tables" on={sidebar === 'tables'} onClick={panel('tables')} />
+              <Tool icon={<Puzzle size={18} />} label="Types" on={sidebar === 'types'} onClick={panel('types')} />
+              <Tool icon={<HeartPulse size={18} />} label="Health" on={sidebar === 'health'} onClick={panel('health')} />
+              <Tool icon={<Route size={18} />} label="Join paths" on={sidebar === 'paths'} onClick={panel('paths')} />
+              <Tool icon={<GitCompareArrows size={18} />} label="Compare" on={sidebar === 'diff'} onClick={panel('diff')} />
+            </>
+          )}
+          {open === 'view' && (
+            <>
+              <Tool icon={<Code2 size={18} />} label="SQL pane" on={sqlOpen} onClick={once(() => st().set({ sqlOpen: !sqlOpen, sidebar: null }))} />
+              <Tool icon={<Focus size={18} />} label="Focus lens" on={focus.enabled} onClick={() => st().set({ focus: { ...focus, enabled: !focus.enabled } })} />
+              {focus.enabled && (
+                <Tool
+                  icon={<span className="ribbon-glyph">{focus.hops}</span>}
+                  label={`${focus.hops} hop${focus.hops > 1 ? 's' : ''}`}
+                  onClick={() => st().set({ focus: { ...focus, hops: (focus.hops % 3) + 1 } })}
+                />
+              )}
+              {view === 'atlas' && <Tool icon={<Waypoints size={18} />} label="Portals" on={portals} onClick={() => st().set({ portals: !portals })} />}
+              <Tool icon={theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />} label={theme === 'dark' ? 'Light' : 'Dark'} onClick={toggleTheme} />
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

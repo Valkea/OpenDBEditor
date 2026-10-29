@@ -8,6 +8,7 @@ import { Sidebar, SidebarRail } from './panels/Sidebar';
 import { SqlPane } from './panels/SqlPane';
 import { TopBar } from './panels/TopBar';
 import { Welcome } from './panels/Welcome';
+import { PhoneBar } from './panels/PhoneBar';
 import { PhoneNotice } from './panels/PhoneNotice';
 import { useStore } from './store/store';
 import { isTyping } from './util/files';
@@ -201,6 +202,7 @@ function Shell() {
       <PhoneNotice />
       <div className="main">
         <SidebarRail />
+        <PhoneBar />
         <Sidebar />
         <div className="stage">
           <Canvas />
