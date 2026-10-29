@@ -22,6 +22,7 @@ import { parseSql } from '../sql/parser';
 import { useStore } from '../store/store';
 import { copyText } from '../util/files';
 import { CodeEditor } from './CodeEditor';
+import { type TypeGroup, TypePicker } from './TypePicker';
 import { useFly } from './useFly';
 
 export function Inspector() {
@@ -58,16 +59,61 @@ function Head({ title, children }: { title: string; children?: React.ReactNode }
   );
 }
 
-function useTypeOptions() {
+const COMMON_TYPES = ['text', 'bigint', 'integer', 'uuid', 'boolean', 'timestamptz', 'date', 'numeric(12, 2)', 'jsonb', 'varchar(255)', 'text[]'];
+
+function useTypeGroups(): TypeGroup[] {
   const schema = useStore((s) => s.schema);
   return useMemo(() => {
     const enabled = new Set(schema.extensions.map((e) => e.name));
     const ext = EXTENSIONS.filter((e) => enabled.has(e.name)).flatMap((e) => e.types ?? []);
-    return [...schema.enums.map((e) => e.name), ...ext, ...BUILTIN_TYPES, 'varchar(255)', 'numeric(12, 2)', 'text[]', 'vector(1536)'];
+    if (enabled.has('vector')) ext.push('vector(1536)');
+    return [
+      { label: 'Common', types: COMMON_TYPES },
+      { label: 'Enums', types: schema.enums.map((e) => e.name) },
+      { label: 'Extensions', types: ext },
+      { label: 'All types', types: BUILTIN_TYPES },
+    ];
   }, [schema.enums, schema.extensions]);
 }
 
 const singular = (n: string) => (n.endsWith('ies') ? `${n.slice(0, -3)}y` : n.endsWith('ses') ? n.slice(0, -2) : n.endsWith('s') ? n.slice(0, -1) : n);
+
+/** The table a `<thing>_id` column most likely points at. */
+function refTarget(name: string, schema: Schema, self: Table): Table | undefined {
+  const m = /^(\w+?)_?id$/i.exec(name);
+  if (!m || !m[1]) return undefined;
+  const base = m[1].toLowerCase();
+  const byName = schema.tables.filter((t) => t.id !== self.id || base === singular(self.name.toLowerCase()));
+  return byName.find((t) => t.name.toLowerCase() === base) ?? byName.find((t) => singular(t.name.toLowerCase()) === base);
+}
+
+/** A sensible first guess for a column known only by its name; everything is editable afterwards. */
+function guessColumn(name: string, schema: Schema, table: Table): { col: Column; ref?: Table } {
+  const n = name.toLowerCase();
+  const enabled = new Set(schema.extensions.map((e) => e.name));
+  const col: Column = { id: uid(), name, type: 'text', nullable: true, pk: false, unique: false };
+  const ref = refTarget(n, schema, table);
+  const refPk = ref?.columns.find((c) => c.pk);
+  if (n === 'id' && !table.columns.some((c) => c.pk)) Object.assign(col, { type: 'bigint', pk: true, nullable: false, identity: 'ALWAYS' });
+  else if (ref && refPk) Object.assign(col, { type: isSerial(refPk.type) ? canonicalType(refPk.type) : refPk.type, nullable: false });
+  else if (/(^|_)(uuid|guid)$/.test(n)) col.type = 'uuid';
+  else if (/_?id$/.test(n)) col.type = 'bigint';
+  else if (/^(is|has|can|should|allow)_/.test(n) || /^(active|enabled|archived|deleted|visible)$/.test(n)) Object.assign(col, { type: 'boolean', nullable: false, default: 'false' });
+  else if (/^(created|updated)_at$/.test(n)) Object.assign(col, { type: 'timestamptz', nullable: false, default: 'now()' });
+  else if (/_at$|^timestamp$/.test(n)) col.type = 'timestamptz';
+  else if (/_(on|date)$|^(date|birthday|dob)$/.test(n)) col.type = 'date';
+  else if (/(^|_)(count|qty|quantity|position|rank|order|year|age|version|size)$/.test(n)) col.type = 'integer';
+  else if (/(^|_)(amount|price|total|cost|balance|rate|fee)$/.test(n)) col.type = 'numeric(12, 2)';
+  else if (/(^|_)(data|metadata|meta|payload|settings|config|attributes|properties|json)$/.test(n)) col.type = 'jsonb';
+  else if (/(^|_)(tags|labels)$/.test(n)) col.type = 'text[]';
+  else if (/(^|_)email$/.test(n) && enabled.has('citext')) col.type = 'citext';
+  else if (/(^|_)embedding$/.test(n) && enabled.has('vector')) col.type = 'vector(1536)';
+  else {
+    const en = schema.enums.find((e) => e.name.toLowerCase() === n || e.name.toLowerCase() === `${singular(table.name.toLowerCase())}_${n}`);
+    if (en) col.type = en.name;
+  }
+  return { col, ref: refPk ? ref : undefined };
+}
 
 /** Parse a column written as SQL: `email citext NOT NULL UNIQUE REFERENCES users(id)`. */
 function parseColumnFragment(fragment: string, schema: Schema): { col?: Column; ref?: { table: Table; col?: string }; error?: string } {
@@ -95,14 +141,16 @@ function TableInspector({ id, columnId }: { id: string; columnId?: string }) {
   const table = useStore((s) => s.schema.tables.find((t) => t.id === id))!;
   const schema = useStore((s) => s.schema);
   const commit = useStore((s) => s.commit);
-  const typeOptions = useTypeOptions();
+  const typeGroups = useTypeGroups();
   const fly = useFly();
   const [quick, setQuick] = useState('');
   const [quickErr, setQuickErr] = useState('');
   const [openCol, setOpenCol] = useState<string | null>(columnId ?? null);
   const [showDDL, setShowDDL] = useState(false);
   const [fkTarget, setFkTarget] = useState('');
+  const [fresh, setFresh] = useState<string | null>(null); // column just added: its type picker takes the focus
   const listRef = useRef<HTMLDivElement>(null);
+  const quickRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!columnId) return;
@@ -128,23 +176,62 @@ function TableInspector({ id, columnId }: { id: string; columnId?: string }) {
   const cname = (tid: string, cid: string) => schema.tables.find((t) => t.id === tid)?.columns.find((c) => c.id === cid)?.name ?? '?';
 
   const addQuick = () => {
-    const r = parseColumnFragment(quick, schema);
-    if (r.error || !r.col) {
-      setQuickErr(r.error ?? 'Invalid');
+    const text = quick.trim();
+    let name = text.replace(/^"|"$/g, '');
+    if (!name) {
+      // no name: add a placeholder and let the user rename it
+      let k = table.columns.length + 1;
+      while (table.columns.some((c) => c.name === `column_${k}`)) k++;
+      name = `column_${k}`;
+    }
+    let col: Column, ref: { table: Table; col?: string } | undefined;
+    if (/^"?[A-Za-z_][\w$]*"?$/.test(text) || !text) {
+      const g = guessColumn(name, schema, table);
+      col = g.col;
+      ref = g.ref && { table: g.ref };
+    } else {
+      const r = parseColumnFragment(text, schema);
+      if (r.error || !r.col) {
+        setQuickErr(r.error ?? 'Invalid');
+        return;
+      }
+      col = r.col;
+      ref = r.ref;
+    }
+    if (table.columns.some((c) => c.name === col.name)) {
+      setQuickErr(`${table.name} already has a column ${col.name}`);
       return;
     }
-    const col = r.col;
     commit((d) => {
       const t = d.tables.find((x) => x.id === id)!;
       t.columns.push(col);
-      if (r.ref) {
-        const target = d.tables.find((x) => x.id === r.ref!.table.id)!;
-        const tc = r.ref.col ? target.columns.find((c) => c.name === r.ref!.col) : target.columns.find((c) => c.pk);
+      if (ref) {
+        const target = d.tables.find((x) => x.id === ref!.table.id)!;
+        const tc = ref.col ? target.columns.find((c) => c.name === ref!.col) : target.columns.find((c) => c.pk);
         if (tc) d.relations.push({ id: uid(), from: { table: id, columns: [col.id] }, to: { table: target.id, columns: [tc.id] }, onDelete: 'NO ACTION', onUpdate: 'NO ACTION' });
       }
     });
     setQuick('');
     setQuickErr('');
+    setOpenCol(col.id);
+    setFresh(col.id);
+  };
+
+  /** Point a column at another table's primary key (or at nothing). */
+  const setRef = (cid: string, targetId: string) => {
+    const target = schema.tables.find((t) => t.id === targetId);
+    const pk = target?.columns.find((c) => c.pk);
+    if (target && !pk) {
+      useStore.getState().toast(`${target.name} has no primary key to reference`, 'warn');
+      return;
+    }
+    commit((d) => {
+      d.relations = d.relations.filter((r) => !(r.from.table === id && r.from.columns.length === 1 && r.from.columns[0] === cid));
+      if (!target || !pk) return;
+      d.relations.push({ id: uid(), from: { table: id, columns: [cid] }, to: { table: target.id, columns: [pk.id] }, onDelete: 'NO ACTION', onUpdate: 'NO ACTION' });
+      const c = d.tables.find((x) => x.id === id)?.columns.find((x) => x.id === cid);
+      if (c) c.type = isSerial(pk.type) ? canonicalType(pk.type) : pk.type;
+    });
   };
 
   const addFk = (targetId: string) => {
@@ -224,11 +311,6 @@ function TableInspector({ id, columnId }: { id: string; columnId?: string }) {
         <div className="section-title">
           Columns <span className="count">{table.columns.length}</span>
         </div>
-        <datalist id="type-options">
-          {typeOptions.map((t) => (
-            <option key={t} value={t} />
-          ))}
-        </datalist>
         <div className="cols" ref={listRef}>
           {table.columns.map((c, i) => {
             const open = openCol === c.id;
@@ -246,7 +328,17 @@ function TableInspector({ id, columnId }: { id: string; columnId?: string }) {
                       x.name = v;
                     }, `cname-${c.id}`);
                   }} />
-                  <input className={`ghost-input mono col-type ${fkCols.has(c.id) ? 'is-fk' : ''}`} list="type-options" value={c.type} spellCheck={false} onChange={(e) => updCol(c.id, (x) => void (x.type = e.target.value), `ctype-${c.id}`)} />
+                  <TypePicker
+                    className={`ghost-input mono col-type ${fkCols.has(c.id) ? 'is-fk' : ''}`}
+                    value={c.type}
+                    groups={typeGroups}
+                    autoFocus={fresh === c.id}
+                    onChange={(v) => updCol(c.id, (x) => void (x.type = v), `ctype-${c.id}`)}
+                    onDone={() => {
+                      setFresh(null);
+                      quickRef.current?.focus();
+                    }}
+                  />
                   <button className={`flag ${!c.nullable ? 'is-on' : ''}`} title="NOT NULL" onClick={() => updCol(c.id, (x) => void (x.nullable = !x.nullable))}>
                     NN
                   </button>
@@ -259,6 +351,19 @@ function TableInspector({ id, columnId }: { id: string; columnId?: string }) {
                 </div>
                 {open && (
                   <div className="col-more">
+                    <label>
+                      References
+                      <select className="input" value={outgoing.find((r) => r.from.columns.length === 1 && r.from.columns[0] === c.id)?.to.table ?? ''} onChange={(e) => setRef(c.id, e.target.value)}>
+                        <option value="">— none —</option>
+                        {schema.tables
+                          .filter((t) => t.columns.some((x) => x.pk))
+                          .map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.name}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
                     <label>
                       Default
                       <input className="input mono" value={c.default ?? ''} placeholder="e.g. now()" onChange={(e) => updCol(c.id, (x) => void (x.default = e.target.value || undefined), `cdef-${c.id}`)} />
@@ -313,10 +418,13 @@ function TableInspector({ id, columnId }: { id: string; columnId?: string }) {
             if (quick.trim()) addQuick();
           }}
         >
-          <input className="input mono grow" placeholder="+ email citext NOT NULL UNIQUE" value={quick} onChange={(e) => { setQuick(e.target.value); setQuickErr(''); }} spellCheck={false} />
+          <input ref={quickRef} className="input mono grow" placeholder="+ new column name" value={quick} onChange={(e) => { setQuick(e.target.value); setQuickErr(''); }} spellCheck={false} />
+          <button type="submit" className="btn sm" title="Add the column (Enter)">
+            Add
+          </button>
         </form>
         {quickErr && <div className="error-box small">{quickErr}</div>}
-        <div className="hint">Type a column as SQL and press Enter — <span className="mono">REFERENCES table</span> creates the link too.</div>
+        <div className="hint">Type a name and press Enter, then pick its type. The type is guessed from the name (<span className="mono">user_id</span> links to users, <span className="mono">created_at</span> is a timestamp…). Full SQL works too: <span className="mono">email text NOT NULL UNIQUE</span>.</div>
 
         <div className="section-title">
           References <span className="count">{outgoing.length}</span>

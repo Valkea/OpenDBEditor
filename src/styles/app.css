@@ -358,7 +358,15 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 .col-type.is-fk { color: var(--accent); }
 .col-more { display: flex; flex-direction: column; gap: 6px; padding: 4px 8px 8px; }
 .col-more label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--text-faint); }
-.quick-add { display: flex; }
+.quick-add { display: flex; gap: 4px; }
+.type-pop {
+  position: fixed; z-index: 1000; max-height: 280px; overflow-y: auto; padding: 4px;
+  background: var(--panel-solid); border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, .28);
+}
+.type-pop-group { padding: 6px 8px 2px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-faint); }
+.type-pop-item { display: block; width: 100%; text-align: left; border: 0; background: none; cursor: pointer; padding: 3px 8px; border-radius: 5px; font-family: var(--mono); font-size: 12px; color: var(--syn-type); }
+.type-pop-item.is-active { background: var(--hover); }
+.type-pop-item.is-current { font-weight: 700; }
 .rel-row { display: flex; align-items: center; gap: 6px; font-size: 12px; justify-content: space-between; }
 .index-card { display: flex; flex-direction: column; gap: 5px; padding: 7px; border: 1px solid var(--line); border-radius: 9px; }
 .rel-hero { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px; border-radius: 12px; background: var(--hover); border: 1px solid var(--line); }
