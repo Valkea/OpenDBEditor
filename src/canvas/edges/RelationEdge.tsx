@@ -1,4 +1,4 @@
-import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, Position, type Edge, type EdgeProps } from '@xyflow/react';
+import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, Position, useStore, type Edge, type EdgeProps } from '@xyflow/react';
 import { memo } from 'react';
 
 export interface RelationEdgeData extends Record<string, unknown> {
@@ -149,4 +149,63 @@ export const ArcEdge = memo(function ArcEdge({ id, sourceX, sourceY, targetX, ta
 
 export const NoteLinkEdge = memo(function NoteLinkEdge({ sourceX, sourceY, targetX, targetY }: EdgeProps) {
   return <path d={`M ${sourceX} ${sourceY} L ${targetX} ${targetY}`} className="note-link" />;
+});
+
+export interface BundleEdgeData extends Record<string, unknown> {
+  /** frames of both ends (flow coordinates) */
+  a: { x: number; y: number; w: number; h: number };
+  b: { x: number; y: number; w: number; h: number };
+  /** relations a → b (a references b) and b → a */
+  ab: number;
+  ba: number;
+  title: string;
+  color?: string;
+  lit?: boolean;
+  dim?: boolean;
+}
+export type BundleEdgeType = Edge<BundleEdgeData, 'bundle'>;
+
+/** Point where the ray from the centre of `r` towards (tx, ty) leaves `r`, pushed out by `pad`. */
+function exitPoint(r: BundleEdgeData['a'], tx: number, ty: number, pad: number) {
+  const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+  const dx = tx - cx, dy = ty - cy;
+  const k = Math.min(dx ? (r.w / 2 + pad) / Math.abs(dx) : Infinity, dy ? (r.h / 2 + pad) / Math.abs(dy) : Infinity);
+  return { x: cx + dx * k, y: cy + dy * k };
+}
+
+function arrowHead(at: { x: number; y: number }, from: { x: number; y: number }, size: number) {
+  const len = Math.hypot(at.x - from.x, at.y - from.y) || 1;
+  const ux = (at.x - from.x) / len, uy = (at.y - from.y) / len;
+  const bx = at.x - ux * size, by = at.y - uy * size;
+  return `M ${at.x} ${at.y} L ${bx - uy * size * 0.6} ${by + ux * size * 0.6} L ${bx + uy * size * 0.6} ${by - ux * size * 0.6} Z`;
+}
+
+/** Group-to-group link at overview zoom: one thick line per pair of groups, with the number of foreign keys behind it. */
+export const BundleEdge = memo(function BundleEdge({ id, data }: EdgeProps<BundleEdgeType>) {
+  // sized in screen pixels: this edge only exists when zoomed far out
+  const zoom = useStore((s) => s.transform[2]);
+  if (!data) return null;
+  const { a, b, ab, ba } = data;
+  const ca = { x: a.x + a.w / 2, y: a.y + a.h / 2 };
+  const cb = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+  const pa = exitPoint(a, cb.x, cb.y, 14);
+  const pb = exitPoint(b, ca.x, ca.y, 14);
+  const n = ab + ba;
+  const width = (1.5 + Math.sqrt(n) * 1.5) / zoom;
+  const head = (9 + Math.sqrt(n) * 2) / zoom;
+  const mx = (pa.x + pb.x) / 2, my = (pa.y + pb.y) / 2;
+  const cls = ['bundle', data.lit && 'is-lit', data.dim && 'is-dim'].filter(Boolean).join(' ');
+  return (
+    <g className={cls} style={data.color ? ({ ['--rel' as string]: data.color } as React.CSSProperties) : undefined}>
+      <title>{data.title}</title>
+      <BaseEdge id={id} path={`M ${pa.x} ${pa.y} L ${pb.x} ${pb.y}`} className="bundle-line" style={{ strokeWidth: width }} interactionWidth={width + 16} />
+      {ab > 0 && <path d={arrowHead(pb, pa, head)} className="bundle-head" />}
+      {ba > 0 && <path d={arrowHead(pa, pb, head)} className="bundle-head" />}
+      <EdgeLabelRenderer>
+        <div className={`bundle-count ${data.dim ? 'is-dim' : ''}`} style={{ transform: `translate(-50%, -50%) translate(${mx}px, ${my}px) scale(${1 / zoom})` }}>
+          {n}
+        </div>
+      </EdgeLabelRenderer>
+    </g>
+  );
 });

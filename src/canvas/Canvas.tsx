@@ -19,22 +19,25 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { adjacency, hopDistances } from '../analysis/graph';
 import { CARD_W, cardHeight, type Detail } from '../layout/geometry';
 import { forceLayoutPositions, orbitPositions, starRadius } from '../layout/constellation';
-import { routeSchema } from '../layout/routing';
+import { regionFrame, routeSchema } from '../layout/routing';
 import { uid } from '../model/ids';
 import type { Schema } from '../model/types';
 import { canonicalType, isSerial } from '../sql/pg';
 import { useDiff, useHidden, useIssues, useLens, usePath } from '../store/derived';
 import { useStore } from '../store/store';
-import { ArcEdge, NoteLinkEdge, RelationEdge } from './edges/RelationEdge';
+import { ArcEdge, BundleEdge, NoteLinkEdge, RelationEdge } from './edges/RelationEdge';
 import { NoteNode } from './nodes/NoteNode';
 import { RegionNode } from './nodes/RegionNode';
 import { RingsNode, StarNode } from './nodes/StarNode';
 import { TableNode } from './nodes/TableNode';
 
 const nodeTypes = { table: TableNode, region: RegionNode, note: NoteNode, star: StarNode, rings: RingsNode };
-const edgeTypes = { relation: RelationEdge, arc: ArcEdge, notelink: NoteLinkEdge };
+const edgeTypes = { relation: RelationEdge, arc: ArcEdge, notelink: NoteLinkEdge, bundle: BundleEdge };
 
 const detailSelector = (s: ReactFlowState): Detail => (s.transform[2] < 0.42 ? 'compact' : s.transform[2] < 0.75 ? 'keys' : 'full');
+/** Below this zoom, Atlas shows groups instead of tables. */
+const OVERVIEW_ZOOM = 0.2;
+const overviewSelector = (s: ReactFlowState) => s.transform[2] < OVERVIEW_ZOOM;
 
 type Pos = { x: number; y: number };
 
@@ -86,6 +89,8 @@ export function Canvas() {
   const view = schema.view ?? 'atlas';
   const zoomDetail = useFlowStore(detailSelector);
   const detail: Detail = view === 'blueprint' ? 'full' : zoomDetail;
+  const farZoom = useFlowStore(overviewSelector);
+  const overview = view === 'atlas' && farZoom && schema.groups.length > 0;
   const hidden = useHidden();
   const issues = useIssues();
   const diff = useDiff();
@@ -96,6 +101,7 @@ export function Canvas() {
   if (import.meta.env.DEV) (window as unknown as { __rf: typeof flowStore }).__rf = flowStore;
   const [hover, setHover] = useState<string | null>(null);
   const [hoverEdge, setHoverEdge] = useState<string | null>(null);
+  const [hoverRegion, setHoverRegion] = useState<string | null>(null);
   const [measured, setMeasured] = useState<Map<string, { width: number; height: number }>>(new Map());
 
   // ---- constellation positions ----
@@ -132,11 +138,36 @@ export function Canvas() {
 
   // Orthogonal routes for every drawn relation (cards are obstacles, shared corridors become lanes).
   const routes = useMemo(
-    () => (view === 'constellation' ? null : routeSchema(schema, detail, hidden)),
+    () => (view === 'constellation' || overview ? null : routeSchema(schema, detail, hidden)),
     // positions, sizes and links only — selection and the like don't move lines
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [view, detail, hidden, schema.tables, schema.relations, schema.groups],
+    [view, detail, hidden, overview, schema.tables, schema.relations, schema.groups],
   );
+
+  // Overview: one block per group (ungrouped tables stand alone), one line per pair of blocks.
+  const bundles = useMemo(() => {
+    if (!overview) return null;
+    const groupIds = new Set(schema.groups.map((g) => g.id));
+    const byId = new Map(schema.tables.map((t) => [t.id, t]));
+    const endOf = (tableId: string) => {
+      const t = byId.get(tableId);
+      return t?.groupId && groupIds.has(t.groupId) ? `region:${t.groupId}` : tableId;
+    };
+    const pairs = new Map<string, { a: string; b: string; ab: number; ba: number; fks: string[] }>();
+    const linksOut = new Map<string, number>();
+    for (const r of schema.relations) {
+      const a = endOf(r.from.table), b = endOf(r.to.table);
+      if (a === b) continue;
+      const key = a < b ? `${a}|${b}` : `${b}|${a}`;
+      const p = pairs.get(key) ?? { a: a < b ? a : b, b: a < b ? b : a, ab: 0, ba: 0, fks: [] };
+      if (p.a === a) p.ab++;
+      else p.ba++;
+      p.fks.push(`${byId.get(r.from.table)?.name} → ${byId.get(r.to.table)?.name}`);
+      pairs.set(key, p);
+      linksOut.set(a, (linksOut.get(a) ?? 0) + 1);
+    }
+    return { pairs: [...pairs.values()], linksOut };
+  }, [overview, schema.groups, schema.tables, schema.relations]);
 
   const highlight = useMemo(() => {
     // tables "lit" by hover / selection / path
@@ -208,13 +239,25 @@ export function Canvas() {
         id: `region:${g.id}`,
         type: 'region',
         position: { x: x0 - pad, y: y0 - top },
-        data: { name: g.name, color: g.color, count: members.length, locked: g.locked, width: x1 - x0 + pad * 2, height: y1 - y0 + top + pad, blueprint: view === 'blueprint', faded: members.every((m) => isFaded(m.id)) },
+        data: {
+          name: g.name,
+          color: g.color,
+          count: members.length,
+          locked: g.locked,
+          width: x1 - x0 + pad * 2,
+          height: y1 - y0 + top + pad,
+          blueprint: view === 'blueprint',
+          faded: members.every((m) => isFaded(m.id)),
+          overview,
+          links: bundles?.linksOut.get(`region:${g.id}`),
+          dim: !!hoverRegion && hoverRegion !== `region:${g.id}` && !bundles?.pairs.some((p) => (p.a === hoverRegion && p.b === `region:${g.id}`) || (p.b === hoverRegion && p.a === `region:${g.id}`)),
+        },
         zIndex: -1,
         draggable: !g.locked,
         selected: selection?.kind === 'group' && selection.id === g.id,
+        // size through style only: React Flow measures handles just for nodes it sizes itself
         style: { width: x1 - x0 + pad * 2, height: y1 - y0 + top + pad },
-        width: x1 - x0 + pad * 2,
-        height: y1 - y0 + top + pad,
+        measured: measured.get(`region:${g.id}`),
       });
     }
 
@@ -257,6 +300,7 @@ export function Canvas() {
         },
         selected: selection?.kind === 'table' && selection.id === t.id,
         draggable: !t.locked,
+        hidden: overview && !!g,
         measured: measured.get(t.id),
       });
     }
@@ -273,7 +317,7 @@ export function Canvas() {
       });
     }
     return out;
-  }, [schema, view, detail, selection, hidden, diff, issueCount, path, lens, measured, flyTo, starPos, starFocus, orbit, highlight]);
+  }, [schema, view, detail, selection, hidden, diff, issueCount, path, lens, measured, flyTo, starPos, starFocus, orbit, highlight, overview, bundles, hoverRegion]);
 
   const edges = useMemo<Edge[]>(() => {
     const byId = new Map(schema.tables.map((t) => [t.id, t]));
@@ -301,6 +345,31 @@ export function Canvas() {
           type: 'arc',
           data: { lit, faded: (path?.rels ? !onPath : isFaded(r.from.table, r.to.table)) || (!!highlight.focusId && (!starFocus || !!hover) && !lit), color: g?.color, path: onPath },
           selected: selection?.kind === 'relation' && selection.id === r.id,
+        });
+      }
+      return out;
+    }
+
+    if (bundles) {
+      const frame = (end: string) => {
+        if (end.startsWith('region:')) return regionFrame(schema, end.slice(7), 'compact')!;
+        const t = byId.get(end)!;
+        return { x: t.x, y: t.y, w: CARD_W, h: cardHeight(t, schema, 'compact') };
+      };
+      const colorOf = (end: string) => (end.startsWith('region:') ? byGroup.get(end.slice(7))?.color : undefined);
+      for (const p of bundles.pairs) {
+        const lit = !!hoverRegion && (p.a === hoverRegion || p.b === hoverRegion);
+        out.push({
+          id: `bundle:${p.a}|${p.b}`,
+          source: p.a,
+          target: p.b,
+          sourceHandle: p.a.startsWith('region:') ? 'c' : 'T-R',
+          targetHandle: p.b.startsWith('region:') ? 'c' : 'T-L',
+          type: 'bundle',
+          selectable: false,
+          // under the blocks (a line passing behind a group doesn't cut through it) unless highlighted
+          zIndex: lit ? 2 : -2,
+          data: { a: frame(p.a), b: frame(p.b), ab: p.ab, ba: p.ba, title: p.fks.join('\n'), color: colorOf(p.ab >= p.ba ? p.a : p.b), lit, dim: !!hoverRegion && !lit },
         });
       }
       return out;
@@ -357,14 +426,14 @@ export function Canvas() {
       out.push({ id: `nl:${n.id}`, source: `note:${n.id}`, sourceHandle: 'n', target: n.attachedTo, targetHandle: side, type: 'notelink', selectable: false, focusable: false });
     }
     return out;
-  }, [schema, view, hidden, path, lens, selection, detail, diff, highlight, routes, hoverEdge]);
+  }, [schema, view, hidden, path, lens, selection, detail, diff, highlight, routes, hoverEdge, bundles, hoverRegion]);
 
   // Handles move without the card changing size (detail level, view, column edits),
   // which React Flow's resize observer can't see — re-measure them explicitly.
   const updateNodeInternals = useUpdateNodeInternals();
-  const handleShape = `${view}|${detail}|${schema.tables.map((t) => `${t.id}:${t.columns.map((c) => c.id).join(',')}`).join('|')}`;
+  const handleShape = `${view}|${detail}|${overview}|${schema.groups.map((g) => g.id).join(',')}|${schema.tables.map((t) => `${t.id}:${t.columns.map((c) => c.id).join(',')}`).join('|')}`;
   useEffect(() => {
-    const ids = schema.tables.map((t) => t.id);
+    const ids = [...schema.tables.map((t) => t.id), ...schema.groups.map((g) => `region:${g.id}`)];
     const raf = requestAnimationFrame(() => updateNodeInternals(ids));
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -484,11 +553,21 @@ export function Canvas() {
         }}
         onNodeDoubleClick={(_, n) => {
           if (n.type === 'star') useStore.getState().set({ starFocus: n.id });
+          if (n.type === 'region' && overview) {
+            const f = regionFrame(useStore.getState().schema, n.id.slice(7), 'compact');
+            if (f) rf.fitBounds({ x: f.x, y: f.y, width: f.w, height: f.h }, { padding: 0.15, duration: 600 });
+          }
         }}
         onEdgeClick={(_, e) => !e.id.startsWith('nl:') && useStore.getState().select({ kind: 'relation', id: e.id })}
         onPaneClick={() => useStore.getState().select(null)}
-        onNodeMouseEnter={(_, n) => (n.type === 'table' || n.type === 'star') && setHover(n.id)}
-        onNodeMouseLeave={() => setHover(null)}
+        onNodeMouseEnter={(_, n) => {
+          if (n.type === 'table' || n.type === 'star') setHover(n.id);
+          else if (n.type === 'region' && overview) setHoverRegion(n.id);
+        }}
+        onNodeMouseLeave={() => {
+          setHover(null);
+          setHoverRegion(null);
+        }}
         onEdgeMouseEnter={(_, e) => e.type === 'relation' && setHoverEdge(e.id)}
         onEdgeMouseLeave={() => setHoverEdge(null)}
         onConnect={onConnect}
@@ -519,7 +598,8 @@ export function Canvas() {
           pannable
           zoomable
           nodeColor={(n) => {
-            if (n.type === 'region' || n.type === 'rings') return 'transparent';
+            if (n.type === 'region') return (n.data as { overview?: boolean; color?: string }).overview ? (n.data as { color: string }).color : 'transparent';
+            if (n.type === 'rings') return 'transparent';
             const d = n.data as { groupColor?: string; color?: string; table?: { color?: string } };
             return d.table?.color ?? d.groupColor ?? d.color ?? '#8892b0';
           }}

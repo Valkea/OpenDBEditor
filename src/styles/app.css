@@ -366,7 +366,7 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 .rel-arrow { font-family: var(--mono); color: var(--accent); font-size: 12px; }
 
 /* ============================================================ canvas */
-.canvas { position: absolute; inset: 0; background: var(--canvas-bg); --canvas-bg: var(--canvas-bg); }
+.canvas { position: absolute; inset: 0; background: var(--canvas-bg); }
 .canvas .react-flow { background: transparent; }
 .canvas .bg { --xy-background-pattern-color: var(--dots); }
 .react-flow__background pattern circle { fill: var(--dots); }
@@ -487,6 +487,24 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 .detail-compact .region-label { font-size: 34px; top: 4px; letter-spacing: .04em; }
 .detail-compact .region-count { font-size: 20px; padding: 2px 12px; }
 .react-flow__node-region { cursor: grab; }
+/* overview (far zoom): groups stand for their tables */
+.region-overview { background: color-mix(in srgb, var(--region) 22%, var(--canvas-bg)); border-width: 6px; border-color: color-mix(in srgb, var(--region) 55%, transparent); border-radius: 48px; }
+.region-overview .region-label { display: none; }
+.region-overview.is-dim { opacity: .3; }
+.region-ov { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 40px; text-align: center; pointer-events: none; }
+.region-ov-name { font-size: 96px; font-weight: 800; letter-spacing: -.01em; color: var(--region); line-height: 1; }
+.region-ov-meta { font-size: 44px; color: var(--text-dim); }
+.bundle { transition: opacity .2s; }
+.bundle-line { stroke: var(--rel, var(--edge)); opacity: .55; fill: none; stroke-linecap: round; }
+.bundle-head { fill: var(--rel, var(--edge)); opacity: .75; }
+.bundle.is-lit .bundle-line { opacity: .95; }
+.bundle.is-lit .bundle-head { opacity: 1; }
+.bundle.is-dim { opacity: .15; }
+.bundle-count {
+  position: absolute; pointer-events: none; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 99px;
+  background: var(--panel-solid); color: var(--text); border: 1px solid color-mix(in srgb, var(--rel, var(--edge)) 60%, transparent);
+}
+.bundle-count.is-dim { opacity: .2; }
 .react-flow__node-region.dragging { cursor: grabbing; }
 
 /* edges */
@@ -657,3 +675,4 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 .tcard.tcard-compact.diff-changed { box-shadow: 0 0 0 6px var(--warn), 0 0 60px -6px var(--warn); background: color-mix(in srgb, var(--warn) 16%, var(--card)); }
 .tblock-diff { font-weight: 700; }
 .welcome-error { margin-bottom: 18px; font-size: 13px; line-height: 1.5; }
+
