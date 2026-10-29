@@ -19,6 +19,7 @@ import type { Column, FkAction, Schema, Table } from '../model/types';
 import { relationDDL, tableDDL } from '../sql/generator';
 import { BUILTIN_TYPES, canonicalType, EXTENSIONS, FK_ACTIONS, isSerial } from '../sql/pg';
 import { parseSql } from '../sql/parser';
+import { useIssues } from '../store/derived';
 import { useStore } from '../store/store';
 import { copyText } from '../util/files';
 import { CodeEditor } from './CodeEditor';
@@ -147,8 +148,10 @@ function TableInspector({ id, columnId }: { id: string; columnId?: string }) {
   const [quickErr, setQuickErr] = useState('');
   const [openCol, setOpenCol] = useState<string | null>(columnId ?? null);
   const [showDDL, setShowDDL] = useState(false);
+  const [showIssues, setShowIssues] = useState(false);
   const [fkTarget, setFkTarget] = useState('');
   const [fresh, setFresh] = useState<string | null>(null); // column just added: its type picker takes the focus
+  const issues = useIssues().filter((i) => i.tableId === id);
   const listRef = useRef<HTMLDivElement>(null);
   const quickRef = useRef<HTMLInputElement>(null);
 
@@ -307,6 +310,42 @@ function TableInspector({ id, columnId }: { id: string; columnId?: string }) {
           value={table.comment ?? ''}
           onChange={(e) => upd((t) => void (t.comment = e.target.value || undefined), `tcomment-${id}`)}
         />
+
+        {issues.length > 0 && (
+          <>
+            <div className="section-title clickable" onClick={() => setShowIssues(!showIssues)}>
+              {showIssues ? <ChevronDown size={13} /> : <ChevronRight size={13} />} Issues{' '}
+              <span className={`count ${showIssues ? '' : `count-${issues.some((i) => i.severity === 'error') ? 'error' : issues.some((i) => i.severity === 'warning') ? 'warning' : 'info'}`}`}>{issues.length}</span>
+            </div>
+            {showIssues && <section className="rule">
+              {issues.map((i) => (
+                <div
+                  key={i.id}
+                  className="issue"
+                  onClick={() => {
+                    if (!i.columnId) return;
+                    setOpenCol(i.columnId);
+                    listRef.current?.querySelector(`[data-ins-col="${i.columnId}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                  }}
+                >
+                  <span className={`sev sev-${i.severity}`} />
+                  <span className="grow">{i.message}</span>
+                  {i.fix && (
+                    <button
+                      className="btn sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        commit((d) => i.fix!.apply(d));
+                      }}
+                    >
+                      {i.fix.label}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </section>}
+          </>
+        )}
 
         <div className="section-title">
           Columns <span className="count">{table.columns.length}</span>
