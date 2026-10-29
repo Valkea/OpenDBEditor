@@ -5,7 +5,7 @@
 import type { ElkExtendedEdge, ElkNode, ElkPort } from 'elkjs/lib/elk-api';
 import type { Schema } from '../model/types';
 import { CARD_W, cardHeight, rowCenterY, type Rect } from './geometry';
-import { flowLayout } from './flow';
+import { cellKey, clonePlan, depthRange, flowLinks, flowPlan, placeFlow, type FlowPlan } from './flow';
 import { routedCrossings } from './routing';
 
 export type Direction = 'RIGHT' | 'DOWN';
@@ -76,8 +76,9 @@ export async function autoLayout(schema: Schema, opts: LayoutOptions): Promise<M
 export async function autoLayoutDetailed(schema: Schema, opts: LayoutOptions): Promise<LayoutResult> {
   const hidden = opts.hiddenRelations ?? new Set<string>();
   if (opts.mode === 'flow' || opts.only === 'flow') {
-    const raw = flowLayout(schema, opts.direction, hidden);
-    return { pos: finalize(schema, raw), strategy: 'flow', crossings: score(schema, raw, hidden).crossings };
+    const plan = flowPlan(schema, hidden);
+    const best = opts.only ? { pos: placeFlow(schema, plan, opts.direction), ...score(schema, placeFlow(schema, plan, opts.direction), hidden) } : await refineFlow(schema, plan, opts.direction, hidden, performance.now() + REFINE_MS);
+    return { pos: finalize(schema, best.pos), strategy: 'flow', crossings: best.crossings };
   }
   const placed = schema.tables.length > 1 && schema.tables.some((t) => t.x || t.y);
   const strategies: Strategy[] = opts.only
@@ -115,6 +116,84 @@ export async function autoLayoutDetailed(schema: Schema, opts: LayoutOptions): P
 
 /** Time the local search may take in total, so big schemas stay responsive. */
 const REFINE_MS = 1500;
+
+/**
+ * Local search on a flow plan, keeping its promise that lines run from referenced to referencing:
+ * swap two bands, swap neighbours in a cell, or move a table one column within its allowed range.
+ */
+async function refineFlow(schema: Schema, start: FlowPlan, direction: Direction, hidden: Set<string>, deadline: number) {
+  const links = flowLinks(schema, hidden);
+  const moves: ((p: FlowPlan) => boolean)[] = [];
+  for (let i = 0; i < start.bands.length; i++)
+    for (let j = i + 1; j < start.bands.length; j++)
+      moves.push((p) => {
+        [p.bands[i], p.bands[j]] = [p.bands[j], p.bands[i]];
+        return true;
+      });
+  for (const t of schema.tables) {
+    // swap with the next table of its cell
+    moves.push((p) => {
+      const cell = p.cells.get(cellKey(p.bandOf.get(t.id)!, p.depth.get(t.id)!))!;
+      const i = cell.indexOf(t.id);
+      if (i < 0 || i === cell.length - 1) return false;
+      [cell[i], cell[i + 1]] = [cell[i + 1], cell[i]];
+      return true;
+    });
+    for (const step of [-1, 1])
+      moves.push((p) => {
+        const d = p.depth.get(t.id)!;
+        const [lo, hi] = depthRange(t.id, p.depth, links, p.maxDepth);
+        const to = d + step;
+        if (to < lo || to > hi) return false;
+        const b = p.bandOf.get(t.id)!;
+        const from = p.cells.get(cellKey(b, d))!;
+        const i = from.indexOf(t.id);
+        from.splice(i, 1);
+        const into = p.cells.get(cellKey(b, to))!;
+        into.splice(Math.min(i, into.length), 0, t.id);
+        p.depth.set(t.id, to);
+        return true;
+      });
+  }
+  let n = 0;
+  const better = (a: { crossings: number; score: number }, b: { crossings: number; score: number }) =>
+    a.crossings < b.crossings || (a.crossings === b.crossings && a.score < b.score - 1e-6);
+  const climb = async (from: FlowPlan) => {
+    let plan = from;
+    let pos = placeFlow(schema, plan, direction);
+    let cur = score(schema, pos, hidden);
+    let improved = true;
+    while (improved && performance.now() < deadline) {
+      improved = false;
+      for (const move of moves) {
+        if (performance.now() >= deadline) break;
+        if (++n % 50 === 0) await new Promise((r) => setTimeout(r)); // let the UI breathe
+        const next = clonePlan(plan);
+        if (!move(next)) continue;
+        const nextPos = placeFlow(schema, next, direction);
+        const sc = score(schema, nextPos, hidden);
+        if (better(sc, cur)) {
+          plan = next;
+          pos = nextPos;
+          cur = sc;
+          improved = true;
+        }
+      }
+    }
+    return { plan, pos, ...cur };
+  };
+  // climb, then keep kicking the best plan with a few random moves and climbing again
+  let best = await climb(start);
+  let seed = 1;
+  const rand = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+  while (performance.now() < deadline) {
+    const kicked = clonePlan(best.plan);
+    for (let k = 0; k < 3 + Math.floor(rand() * 4); k++) moves[Math.floor(rand() * moves.length)](kicked);
+    const r = await climb(kicked);
+    if (better(r, best)) best = r;
+  }
+  return { pos: best.pos, crossings: best.crossings, score: best.score };
+}
 
 const clonePos = (pos: Map<string, Pos>) => new Map([...pos].map(([k, p]) => [k, { ...p }]));
 
