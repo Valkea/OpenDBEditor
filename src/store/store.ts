@@ -92,7 +92,7 @@ function readTheme(): 'dark' | 'light' {
   } catch {
     /* storage unavailable */
   }
-  return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  return 'dark'; // dark unless the user picked light with the toggle
 }
 
 export function hiddenRelations(schema: Schema, portals: boolean, threshold: number): Set<string> {
