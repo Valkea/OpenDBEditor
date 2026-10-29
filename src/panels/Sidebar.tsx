@@ -8,6 +8,7 @@ import {
   Download,
   GitCompareArrows,
   HeartPulse,
+  ListOrdered,
   Lock,
   LockOpen,
   Plus,
@@ -35,33 +36,47 @@ import { useFly } from './useFly';
 
 const TABS: { id: SidebarTab; label: string; icon: typeof Boxes }[] = [
   { id: 'tables', label: 'Tables', icon: Boxes },
-  { id: 'types', label: 'Types', icon: Puzzle },
+  { id: 'enums', label: 'Enums', icon: ListOrdered },
+  { id: 'extensions', label: 'Extensions', icon: Puzzle },
   { id: 'health', label: 'Health', icon: HeartPulse },
   { id: 'paths', label: 'Join paths', icon: Route },
   { id: 'diff', label: 'Compare', icon: GitCompareArrows },
 ];
 
-export function SidebarRail() {
+/** The panel buttons: down the left rail, or at the top of the phone bar. */
+export function SidebarTabs({ onPick }: { onPick?: () => void }) {
   const tab = useStore((s) => s.sidebar);
   const issues = useIssues();
   const diff = useDiff();
   const errs = issues.filter((i) => i.severity !== 'info').length;
-  const welcome = useStore((s) => s.welcome);
-  if (welcome) return null; // nothing open yet: keep the welcome screen clean
   return (
-    <nav className="rail">
+    <>
       {TABS.map((t) => (
         <button
           key={t.id}
           className={`rail-btn ${tab === t.id ? 'is-active' : ''}`}
           title={t.label}
-          onClick={() => useStore.getState().set({ sidebar: tab === t.id ? null : t.id })}
+          aria-pressed={tab === t.id}
+          onClick={() => {
+            onPick?.();
+            useStore.getState().set({ sidebar: tab === t.id ? null : t.id });
+          }}
         >
           <t.icon size={18} />
           {t.id === 'health' && errs > 0 && <span className="rail-dot">{errs}</span>}
           {t.id === 'diff' && diff && diff.count > 0 && <span className="rail-dot rail-dot-ok">{diff.count}</span>}
         </button>
       ))}
+    </>
+  );
+}
+
+export function SidebarRail() {
+  const welcome = useStore((s) => s.welcome);
+  if (welcome) return null; // nothing open yet: keep the welcome screen clean
+  return (
+    <nav className="rail">
+      <SidebarTabs />
     </nav>
   );
 }
@@ -81,7 +96,8 @@ export function Sidebar() {
       </div>
       <div className="sidebar-body">
         {tab === 'tables' && <TablesTab />}
-        {tab === 'types' && <TypesTab />}
+        {tab === 'enums' && <EnumsTab />}
+        {tab === 'extensions' && <ExtensionsTab />}
         {tab === 'health' && <HealthTab />}
         {tab === 'paths' && <PathsTab />}
         {tab === 'diff' && <DiffTab />}
@@ -206,19 +222,17 @@ function TablesTab() {
   );
 }
 
-// ---------------------------------------------------------------- types
+// ---------------------------------------------------------------- enums
 
-function TypesTab() {
+function EnumsTab() {
   const schema = useStore((s) => s.schema);
   const commit = useStore((s) => s.commit);
   const selection = useStore((s) => s.selection);
-  const [custom, setCustom] = useState('');
   const usage = useMemo(() => {
     const m = new Map<string, number>();
     for (const t of schema.tables) for (const c of t.columns) m.set(c.type.replace(/\[\]$/, ''), (m.get(c.type.replace(/\[\]$/, '')) ?? 0) + 1);
     return m;
   }, [schema]);
-  const enabled = new Set(schema.extensions.map((e) => e.name));
 
   return (
     <div className="stack">
@@ -239,7 +253,20 @@ function TypesTab() {
       {schema.enums.map((e) => (
         <EnumCard key={e.id} id={e.id} usage={usage.get(e.name) ?? 0} selected={selection?.kind === 'enum' && selection.id === e.id} />
       ))}
+    </div>
+  );
+}
 
+// ---------------------------------------------------------------- extensions
+
+function ExtensionsTab() {
+  const schema = useStore((s) => s.schema);
+  const commit = useStore((s) => s.commit);
+  const [custom, setCustom] = useState('');
+  const enabled = new Set(schema.extensions.map((e) => e.name));
+
+  return (
+    <div className="stack">
       <div className="section-title">
         Extensions <span className="count">{schema.extensions.length}</span>
       </div>

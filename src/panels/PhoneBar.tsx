@@ -2,15 +2,10 @@ import {
   Boxes,
   Code2,
   Focus,
-  GitCompareArrows,
-  HeartPulse,
   LayoutGrid,
   Loader2,
   Moon,
-  PanelLeft,
   Plus,
-  Puzzle,
-  Route,
   SlidersHorizontal,
   StickyNote,
   Sun,
@@ -19,12 +14,13 @@ import {
   Workflow,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { type SidebarTab, useStore } from '../store/store';
+import { useStore } from '../store/store';
+import { SidebarTabs } from './Sidebar';
 import { useIsPhone } from '../util/phone';
 import { VIEWS } from './TopBar';
 import { useActions } from './useActions';
 
-type Section = 'add' | 'layout' | 'panels' | 'view';
+type Section = 'add' | 'layout' | 'view';
 
 /** One tool in the ribbon: icon above a short label. */
 function Tool({ icon, label, on, disabled, onClick }: { icon: React.ReactNode; label: string; on?: boolean; disabled?: boolean; onClick: () => unknown }) {
@@ -37,7 +33,7 @@ function Tool({ icon, label, on, disabled, onClick }: { icon: React.ReactNode; l
 }
 
 /**
- * Phone only: a narrow bar of icons down the left edge. The view buttons act at once; the other icons open a
+ * Phone only: a narrow bar of icons down the left edge. The panel and view buttons act at once; the other icons open a
  * ribbon of tools along the top of the diagram. One-shot tools close the ribbon, switches keep it open.
  */
 export function PhoneBar() {
@@ -46,7 +42,7 @@ export function PhoneBar() {
   const ref = useRef<HTMLDivElement>(null);
   const schema = useStore((s) => s.schema);
   const view = schema.view ?? 'atlas';
-  const sidebar = useStore((s) => s.sidebar);
+  const welcome = useStore((s) => s.welcome);
   const sqlOpen = useStore((s) => s.sqlOpen);
   const theme = useStore((s) => s.theme);
   const focus = useStore((s) => s.focus);
@@ -76,18 +72,22 @@ export function PhoneBar() {
     setOpen(null);
     void fn();
   };
-  const panel = (id: SidebarTab) => once(() => st().set({ sidebar: sidebar === id ? null : id, sqlOpen: false }));
   const toggle = (s: Section) => setOpen(open === s ? null : s);
   const SECTIONS: { id: Section; label: string; icon: typeof Plus; hidden?: boolean }[] = [
     { id: 'add', label: 'Add', icon: Plus },
     { id: 'layout', label: 'Layout', icon: LayoutGrid, hidden: view === 'constellation' },
-    { id: 'panels', label: 'Panels', icon: PanelLeft },
     { id: 'view', label: 'View', icon: SlidersHorizontal },
   ];
 
   return (
     <div className="phonebar" ref={ref}>
       <nav className="phonebar-icons">
+        {!welcome && (
+          <>
+            <SidebarTabs onPick={() => { setOpen(null); st().set({ sqlOpen: false }); }} />
+            <span className="phonebar-sep" />
+          </>
+        )}
         {VIEWS.map((v) => (
           <button key={v.id} className={`rail-btn ${view === v.id ? 'is-active' : ''}`} title={v.label} aria-pressed={view === v.id} onClick={() => st().setView(v.id)}>
             <v.icon size={18} />
@@ -123,15 +123,6 @@ export function PhoneBar() {
                   onClick={() => st().set({ direction: direction === 'RIGHT' ? 'DOWN' : 'RIGHT' })}
                 />
               )}
-            </>
-          )}
-          {open === 'panels' && (
-            <>
-              <Tool icon={<Boxes size={18} />} label="Tables" on={sidebar === 'tables'} onClick={panel('tables')} />
-              <Tool icon={<Puzzle size={18} />} label="Types" on={sidebar === 'types'} onClick={panel('types')} />
-              <Tool icon={<HeartPulse size={18} />} label="Health" on={sidebar === 'health'} onClick={panel('health')} />
-              <Tool icon={<Route size={18} />} label="Join paths" on={sidebar === 'paths'} onClick={panel('paths')} />
-              <Tool icon={<GitCompareArrows size={18} />} label="Compare" on={sidebar === 'diff'} onClick={panel('diff')} />
             </>
           )}
           {open === 'view' && (

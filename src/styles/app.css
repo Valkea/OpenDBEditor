@@ -752,6 +752,7 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
   width: 46px; height: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; overflow-y: auto;
   border-right: 1px solid var(--line); background: var(--panel-solid);
 }
+.phonebar-icons .rail-btn { flex: none; } /* on a short screen the bar scrolls rather than squashing them */
 .phonebar-icons .rail-btn:disabled { opacity: .35; cursor: default; background: none; }
 .phonebar-sep { width: 22px; height: 1px; margin: 4px 0; background: var(--line); flex: none; }
 .ribbon {

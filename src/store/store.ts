@@ -23,7 +23,7 @@ export type Selection =
   | { kind: 'group'; id: string }
   | null;
 
-export type SidebarTab = 'tables' | 'types' | 'health' | 'diff' | 'paths';
+export type SidebarTab = 'tables' | 'enums' | 'extensions' | 'health' | 'diff' | 'paths';
 
 export interface Toast {
   id: string;
