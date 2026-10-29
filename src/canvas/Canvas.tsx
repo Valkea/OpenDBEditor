@@ -25,7 +25,7 @@ import { uid } from '../model/ids';
 import type { Schema } from '../model/types';
 import { canonicalType, isSerial } from '../sql/pg';
 import { useDiff, useHidden, useIssues, useLens, usePath } from '../store/derived';
-import { Map as MapIcon } from 'lucide-react';
+import { Lock, LockOpen, Map as MapIcon, X } from 'lucide-react';
 import { useStore } from '../store/store';
 import { useIsPhone } from '../util/phone';
 import { ArcEdge, BundleEdge, NoteLinkEdge, RelationEdge } from './edges/RelationEdge';
@@ -91,6 +91,32 @@ export function Canvas() {
   const starFocus = useStore((s) => s.starFocus);
   const view = schema.view ?? 'atlas';
   const phone = useIsPhone();
+  const moveLocked = useStore((s) => s.moveLocked);
+  // first time the lock is on in this session: say where to unlock it
+  const welcome = useStore((s) => s.welcome);
+  const [lockHint, setLockHint] = useState(() => {
+    try {
+      return sessionStorage.getItem('odbe-lock-hint') !== '1';
+    } catch {
+      return true;
+    }
+  });
+  const showLockHint = lockHint && moveLocked && !welcome && schema.tables.length > 0 && view !== 'constellation';
+  useEffect(() => {
+    if (!showLockHint) return;
+    try {
+      sessionStorage.setItem('odbe-lock-hint', '1');
+    } catch {
+      /* ignore */
+    }
+    const t = window.setTimeout(() => setLockHint(false), 9000);
+    return () => window.clearTimeout(t);
+  }, [showLockHint]);
+  const setMoveLocked = (locked: boolean) => {
+    useStore.getState().set({ moveLocked: locked });
+    useStore.getState().toast(locked ? 'Moving locked: tables and notes stay put' : 'Moving unlocked: drag tables and notes · the lock button locks them again');
+    setLockHint(false);
+  };
   const [miniOpen, setMiniOpen] = useState(() => {
     try {
       return localStorage.getItem('odbe-minimap') !== 'off';
@@ -341,6 +367,8 @@ export function Canvas() {
     }
     return out;
   }, [schema, view, detail, selection, hidden, diff, issueCount, path, lens, measured, flyTo, starPos, starFocus, orbit, highlight, overview, bundles, hoverRegion]);
+  // the move lock overrides each node's own draggable flag (which only reflects per-table locks)
+  const shownNodes = useMemo(() => (moveLocked && view !== 'constellation' ? nodes.map((n) => (n.draggable === false ? n : { ...n, draggable: false })) : nodes), [nodes, moveLocked, view]);
 
   const edges = useMemo<Edge[]>(() => {
     const byId = new Map(schema.tables.map((t) => [t.id, t]));
@@ -559,7 +587,7 @@ export function Canvas() {
     <div className={`canvas view-${view} detail-${detail}`} data-theme-canvas={theme}>
       <ReactFlow
         proOptions={{ hideAttribution: true }} // React Flow (MIT) is credited in the README
-        nodes={nodes}
+        nodes={shownNodes}
         edges={edges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
@@ -617,6 +645,16 @@ export function Canvas() {
         <Background variant={bg} gap={view === 'blueprint' ? 24 : 22} size={view === 'blueprint' ? 1 : 1.3} className="bg" />
         {view === 'blueprint' && <Background id="major" variant={BackgroundVariant.Lines} gap={120} className="bg-major" />}
         <Controls showInteractive={false} position="bottom-left" className="controls" style={{ margin }}>
+          {view !== 'constellation' && (
+            <ControlButton
+              onClick={() => setMoveLocked(!moveLocked)}
+              title={moveLocked ? 'Moving is locked: click to move tables and notes' : 'Moving is unlocked: click to lock tables and notes in place'}
+              aria-label={moveLocked ? 'Unlock moving' : 'Lock moving'}
+              className={`move-lock ${moveLocked ? 'is-locked' : ''}`}
+            >
+              {moveLocked ? <Lock size={14} /> : <LockOpen size={14} />}
+            </ControlButton>
+          )}
           <ControlButton onClick={toggleMini} title={miniOpen ? 'Hide the minimap' : 'Show the minimap'} aria-label={miniOpen ? 'Hide the minimap' : 'Show the minimap'} className={miniOpen ? 'is-on' : ''}>
             <MapIcon size={14} />
           </ControlButton>
@@ -638,6 +676,17 @@ export function Canvas() {
           />
         )}
       </ReactFlow>
+      {showLockHint && (
+        <div className="lock-hint" role="status">
+          <Lock size={14} />
+          <span>
+            Tables are locked in place. Use the <b>lock button</b> at the bottom left to move them.
+          </span>
+          <button className="icon-btn" title="Got it" onClick={() => setLockHint(false)}>
+            <X size={14} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

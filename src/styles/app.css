@@ -398,6 +398,19 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 .react-flow__controls-button:hover { background: var(--hover); }
 .react-flow__controls-button svg { fill: currentColor; }
 .react-flow__controls-button.is-on { color: var(--accent); }
+/* the move lock: first in the stack, filled while locked */
+.react-flow__controls-button.move-lock { order: -1; }
+.react-flow__controls-button.move-lock.is-locked { color: var(--accent-ink); background: var(--accent); }
+.react-flow__controls-button.move-lock.is-locked:hover { background: color-mix(in srgb, var(--accent) 85%, white); }
+.react-flow__controls { display: flex; flex-direction: column; }
+.lock-hint {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 12; display: flex; align-items: center; gap: 9px;
+  width: max-content; max-width: calc(100% - 24px); padding: 7px 8px 7px 13px; border-radius: 12px; font-size: 12.5px; color: var(--text-dim);
+  background: var(--panel-solid); border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line-strong)); box-shadow: 0 10px 28px rgba(0, 0, 0, .3);
+  animation: fadeIn .25s var(--ease);
+}
+.lock-hint > svg { flex: none; color: var(--accent); }
+.lock-hint b { color: var(--text); }
 .react-flow__controls-button svg.lucide { fill: none; max-width: 14px; max-height: 14px; }
 .react-flow__minimap { background: var(--panel); border: 1px solid var(--line-strong); border-radius: 12px; overflow: hidden; margin: 14px; }
 .react-flow__minimap-mask { fill: var(--minimap-mask); }
@@ -768,3 +781,4 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
   .welcome-foot { display: none; }
 }
 @keyframes sheetUp { from { opacity: 0; transform: translateY(16px); } }
+@keyframes fadeIn { from { opacity: 0; } }

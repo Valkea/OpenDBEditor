@@ -52,6 +52,8 @@ interface State {
   diffBase: { name: string; schema: Schema } | null;
   starFocus: string | null;
   portals: boolean;
+  /** Tables and notes can't be dragged (default): avoids moving things by accident while panning or tapping. */
+  moveLocked: boolean;
   hubThreshold: number;
   layoutBusy: boolean;
   direction: Direction;
@@ -128,6 +130,7 @@ export const useStore = create<State>((set, get) => ({
   diffBase: null,
   starFocus: null,
   portals: false,
+  moveLocked: true,
   hubThreshold: 5,
   layoutBusy: false,
   direction: 'RIGHT',
