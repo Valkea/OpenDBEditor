@@ -155,6 +155,15 @@ input, textarea, select { font: inherit; color: inherit; }
 /* secondary labels go first, so Open / Export / Share keep theirs longer */
 @media (max-width: 1600px) { .tb-label-2 { display: none; } }
 @media (max-width: 1280px) { .tb-label { display: none; } .schema-name { width: 140px; } }
+/* narrower still: canvas tools and misc buttons fold into the ⋯ menu */
+.tb-more { display: none; }
+.tb-more .menu-pop { max-height: calc(100dvh - 72px); overflow-y: auto; }
+.menu-glyph { width: 14px; text-align: center; font-family: var(--mono); font-size: 12px; }
+@media (max-width: 1100px) {
+  .tb-collapsible { display: none; }
+  .tb-more { display: block; }
+  .schema-name { width: 120px; }
+}
 
 .menu { position: relative; }
 .menu-pop {
@@ -387,6 +396,8 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 .react-flow__controls-button { background: transparent; border: 0; border-bottom: 1px solid var(--line); color: var(--text-dim); width: 30px; height: 30px; }
 .react-flow__controls-button:hover { background: var(--hover); }
 .react-flow__controls-button svg { fill: currentColor; }
+.react-flow__controls-button.is-on { color: var(--accent); }
+.react-flow__controls-button svg.lucide { fill: none; max-width: 14px; max-height: 14px; }
 .react-flow__minimap { background: var(--panel); border: 1px solid var(--line-strong); border-radius: 12px; overflow: hidden; margin: 14px; }
 .react-flow__minimap-mask { fill: var(--minimap-mask); }
 
@@ -698,7 +709,6 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 .palette [cmdk-empty] { padding: 20px; text-align: center; color: var(--text-faint); }
 .react-flow__attribution { background: transparent; opacity: .45; font-size: 9px; }
 .react-flow__attribution a { color: var(--text-faint); }
-.react-flow__controls.controls { margin-left: 228px; }
 .crash { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center; }
 .crash pre { max-width: 640px; white-space: pre-wrap; color: var(--err); font-family: var(--mono); font-size: 12px; }
 
@@ -708,3 +718,52 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 .tblock-diff { font-weight: 700; }
 .welcome-error { margin-bottom: 18px; font-size: 13px; line-height: 1.5; }
 
+
+/* ------------------------------------------------------------ phone (limited mode) */
+/* keep the breakpoint in sync with PHONE_QUERY in util/phone.ts */
+.phone-notice {
+  display: flex; align-items: flex-start; gap: 10px; padding: 9px 10px 9px 14px; font-size: 12.5px; line-height: 1.45;
+  color: var(--text-dim); background: color-mix(in srgb, var(--warn) 12%, var(--panel-solid)); border-bottom: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+  z-index: 19;
+}
+.phone-notice > svg { flex: none; margin-top: 2px; color: var(--warn); }
+.phone-notice b { color: var(--text); }
+.phone-notice .icon-btn { flex: none; margin: -4px 0; }
+.menu-note { display: flex; gap: 8px; padding: 8px 10px 10px; font-size: 12px; line-height: 1.45; color: var(--text-dim); border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.menu-note svg { flex: none; margin-top: 2px; color: var(--warn); }
+.menu-note b { color: var(--text); }
+.menu-sep { padding: 8px 10px 3px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text-faint); }
+.menu-pop button:disabled { opacity: .4; cursor: default; background: none; }
+
+@media (max-width: 760px) {
+  .topbar-phone { gap: 6px; padding: 0 8px; }
+  .topbar-phone .brand span { display: none; }
+  .topbar-phone .schema-name { flex: 1; width: auto; min-width: 0; padding: 5px 6px; }
+  .topbar-phone .segmented button { padding: 5px 8px; }
+  .phone-menu .menu-pop {
+    position: fixed; top: 56px; right: 8px; left: auto; width: min(320px, calc(100vw - 16px));
+    max-height: calc(100dvh - 72px); overflow-y: auto;
+  }
+  .local-pop { position: fixed; top: 56px; left: 8px; right: 8px; width: auto; max-height: calc(100dvh - 72px); overflow-y: auto; }
+
+  /* panels become full-screen sheets over the diagram */
+  .rail { display: none; }
+  .main { position: relative; }
+  .sidebar, .sqlpane { position: absolute; inset: 0; width: auto; z-index: 25; border: 0; background: var(--panel-solid); }
+  .inspector {
+    top: auto; left: 6px; right: 6px; bottom: 6px; width: auto; height: min(62dvh, 560px);
+    border-radius: 14px 14px 10px 10px; animation: sheetUp .22s var(--ease);
+  }
+  .legend-hint { display: none; }
+  .toasts { top: 60px; width: calc(100vw - 24px); }
+  .toast { text-align: center; }
+
+  .welcome { place-items: start center; overflow-y: auto; padding: 12px 0 24px; }
+  .welcome-card { width: calc(100vw - 20px); padding: 24px 18px 18px; border-radius: 16px; }
+  .welcome-card h1 { font-size: 28px; }
+  .welcome-card p { font-size: 13.5px; margin-bottom: 16px; }
+  .welcome-promises { margin: 0 0 18px; }
+  .welcome-actions .btn { flex: 1 1 100%; justify-content: center; }
+  .welcome-foot { display: none; }
+}
+@keyframes sheetUp { from { opacity: 0; transform: translateY(16px); } }

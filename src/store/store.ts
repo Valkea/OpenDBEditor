@@ -13,6 +13,7 @@ import { autoLayout, type ArrangeMode, type Direction } from '../layout/auto';
 import { suggestGroups } from '../layout/cluster';
 import { routedCrossings } from '../layout/routing';
 import { inDegree } from '../analysis/graph';
+import { isPhone } from '../util/phone';
 
 export type Selection =
   | { kind: 'table'; id: string; columnId?: string }
@@ -114,7 +115,7 @@ export const useStore = create<State>((set, get) => ({
   origin: 'load',
   revision: 0,
   selection: null,
-  sidebar: 'tables',
+  sidebar: isPhone() ? null : 'tables', // on a phone the panel would cover the whole diagram
   sqlOpen: false,
   theme: readTheme(),
   importDiagnostics: [],
