@@ -20,7 +20,7 @@ import {
   Wand2,
   X,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { migrationSql } from '../analysis/diff';
 import { joinSql } from '../analysis/graph';
 import { RULE_LABELS, type Issue } from '../analysis/lint';
@@ -321,6 +321,10 @@ function EnumCard({ id, usage, selected }: { id: string; usage: number; selected
   const e = useStore((s) => s.schema.enums.find((x) => x.id === id))!;
   const commit = useStore((s) => s.commit);
   const [val, setVal] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (selected) ref.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [selected]);
   if (!e) return null;
   const rename = (name: string) =>
     commit((d) => {
@@ -330,7 +334,7 @@ function EnumCard({ id, usage, selected }: { id: string; usage: number; selected
       for (const t of d.tables) for (const c of t.columns) if (c.type === old || c.type === `${old}[]`) c.type = c.type.replace(old, name);
     }, `enum-name-${id}`);
   return (
-    <div className={`enum-card ${selected ? 'is-selected' : ''}`} onClick={() => useStore.getState().select({ kind: 'enum', id })}>
+    <div ref={ref} className={`enum-card ${selected ? 'is-selected' : ''}`} onClick={() => useStore.getState().select({ kind: 'enum', id })}>
       <div className="row">
         <input className="ghost-input mono grow" value={e.name} onChange={(ev) => rename(ev.target.value)} />
         <span className="count" title="columns using it">{usage} use{usage === 1 ? '' : 's'}</span>

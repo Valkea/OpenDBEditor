@@ -290,6 +290,7 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
   background: color-mix(in srgb, var(--enum) 13%, transparent); color: var(--enum); border: 1px solid color-mix(in srgb, var(--enum) 25%, transparent);
 }
 .chip-btn { cursor: pointer; padding-right: 9px; background: var(--hover); color: var(--text-dim); border-color: var(--line); }
+.chip-ro { padding-right: 9px; }
 .chip-btn:hover { color: var(--text); border-color: var(--accent); }
 .chip-x { border: 0; background: transparent; cursor: pointer; color: inherit; opacity: .55; padding: 0 3px; font-size: 13px; line-height: 1; }
 .chip-x:hover { opacity: 1; }
@@ -377,8 +378,9 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 .col-name { flex: 1.35; font-size: 12px; }
 .col-type { flex: 1.1; font-size: 11.5px; color: var(--syn-type); }
 .col-type.is-fk { color: var(--accent); }
+.col-type.is-enum { color: var(--enum); }
 .col-more { display: flex; flex-direction: column; gap: 6px; padding: 4px 8px 8px; }
-.col-more label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--text-faint); }
+.col-more label, .col-more .field { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--text-faint); }
 .quick-add { display: flex; gap: 4px; }
 .type-pop {
   position: fixed; z-index: 1000; max-height: 280px; overflow-y: auto; padding: 4px;

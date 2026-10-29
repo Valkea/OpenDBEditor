@@ -91,6 +91,12 @@ function useTypeGroups(): TypeGroup[] {
   }, [schema.enums, schema.extensions]);
 }
 
+/** Show an enum in the sidebar's Enums tab. */
+function openEnum(id: string) {
+  useStore.getState().set({ sidebar: 'enums' });
+  useStore.getState().select({ kind: 'enum', id });
+}
+
 const singular = (n: string) => (n.endsWith('ies') ? `${n.slice(0, -3)}y` : n.endsWith('ses') ? n.slice(0, -2) : n.endsWith('s') ? n.slice(0, -1) : n);
 
 /** The table a `<thing>_id` column most likely points at. */
@@ -357,6 +363,7 @@ function TableInspector({ id, columnId }: { id: string; columnId?: string }) {
         <div className="cols" ref={listRef}>
           {table.columns.map((c, i) => {
             const open = openCol === c.id;
+            const en = schema.enums.find((e) => e.name === c.type.replace(/\[\]$/, ''));
             return (
               <div key={c.id} className={`col ${open ? 'is-open' : ''} ${columnId === c.id ? 'is-target' : ''}`} data-ins-col={c.id}>
                 <div className="col-row">
@@ -372,7 +379,7 @@ function TableInspector({ id, columnId }: { id: string; columnId?: string }) {
                     }, `cname-${c.id}`);
                   }} />
                   <TypePicker
-                    className={`ghost-input mono col-type ${fkCols.has(c.id) ? 'is-fk' : ''}`}
+                    className={`ghost-input mono col-type ${fkCols.has(c.id) ? 'is-fk' : en ? 'is-enum' : ''}`}
                     value={c.type}
                     groups={typeGroups}
                     autoFocus={fresh === c.id}
@@ -394,6 +401,19 @@ function TableInspector({ id, columnId }: { id: string; columnId?: string }) {
                 </div>
                 {open && (
                   <div className="col-more">
+                    {en && (
+                      <div className="field">
+                        Values
+                        <div className="chips">
+                          {en.values.map((v, j) => (
+                            <span key={`${v}-${j}`} className="chip chip-ro">{v}</span>
+                          ))}
+                          <button className="chip chip-btn" title={`Edit ${en.name} in the Enums panel`} onClick={() => openEnum(en.id)}>
+                            Edit enum →
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     <label>
                       References
                       <select className="input" value={outgoing.find((r) => r.from.columns.length === 1 && r.from.columns[0] === c.id)?.to.table ?? ''} onChange={(e) => setRef(c.id, e.target.value)}>
