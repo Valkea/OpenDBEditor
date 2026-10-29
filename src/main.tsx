@@ -15,6 +15,11 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 
+// Cache the whole app so it keeps working with no network (production builds only).
+if (import.meta.env.PROD && 'serviceWorker' in navigator && location.protocol !== 'file:') {
+  window.addEventListener('load', () => void navigator.serviceWorker.register('./sw.js').catch(() => undefined));
+}
+
 // Dev-only handle for browser automation and debugging.
 if (import.meta.env.DEV) {
   void import('./store/store').then(({ useStore }) => {
