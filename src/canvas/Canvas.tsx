@@ -2,6 +2,7 @@ import {
   Background,
   BackgroundVariant,
   ConnectionMode,
+  ControlButton,
   Controls,
   MiniMap,
   ReactFlow,
@@ -24,7 +25,9 @@ import { uid } from '../model/ids';
 import type { Schema } from '../model/types';
 import { canonicalType, isSerial } from '../sql/pg';
 import { useDiff, useHidden, useIssues, useLens, usePath } from '../store/derived';
+import { Map as MapIcon } from 'lucide-react';
 import { useStore } from '../store/store';
+import { useIsPhone } from '../util/phone';
 import { ArcEdge, BundleEdge, NoteLinkEdge, RelationEdge } from './edges/RelationEdge';
 import { NoteNode } from './nodes/NoteNode';
 import { RegionNode } from './nodes/RegionNode';
@@ -87,6 +90,26 @@ export function Canvas() {
   const theme = useStore((s) => s.theme);
   const starFocus = useStore((s) => s.starFocus);
   const view = schema.view ?? 'atlas';
+  const phone = useIsPhone();
+  const [miniOpen, setMiniOpen] = useState(() => {
+    try {
+      return localStorage.getItem('odbe-minimap') !== 'off';
+    } catch {
+      return true;
+    }
+  });
+  const toggleMini = () => {
+    setMiniOpen(!miniOpen);
+    try {
+      localStorage.setItem('odbe-minimap', miniOpen ? 'off' : 'on');
+    } catch {
+      /* ignore */
+    }
+  };
+  // zoom buttons in the corner, the minimap just right of them
+  const mini = phone ? { w: 120, h: 90 } : { w: 200, h: 150 };
+  const margin = phone ? 8 : 14;
+  const CONTROLS_W = 32; // 30px buttons + border
   const zoomDetail = useFlowStore(detailSelector);
   const detail: Detail = view === 'blueprint' ? 'full' : zoomDetail;
   const farZoom = useFlowStore(overviewSelector);
@@ -592,20 +615,27 @@ export function Canvas() {
       >
         <Background variant={bg} gap={view === 'blueprint' ? 24 : 22} size={view === 'blueprint' ? 1 : 1.3} className="bg" />
         {view === 'blueprint' && <Background id="major" variant={BackgroundVariant.Lines} gap={120} className="bg-major" />}
-        <Controls showInteractive={false} position="bottom-left" className="controls" />
-        <MiniMap
-          position="bottom-left"
-          pannable
-          zoomable
-          nodeColor={(n) => {
-            if (n.type === 'region') return (n.data as { overview?: boolean; color?: string }).overview ? (n.data as { color: string }).color : 'transparent';
-            if (n.type === 'rings') return 'transparent';
-            const d = n.data as { groupColor?: string; color?: string; table?: { color?: string } };
-            return d.table?.color ?? d.groupColor ?? d.color ?? '#8892b0';
-          }}
-          nodeStrokeWidth={0}
-          maskColor="var(--minimap-mask)"
-        />
+        <Controls showInteractive={false} position="bottom-left" className="controls" style={{ margin }}>
+          <ControlButton onClick={toggleMini} title={miniOpen ? 'Hide the minimap' : 'Show the minimap'} aria-label={miniOpen ? 'Hide the minimap' : 'Show the minimap'} className={miniOpen ? 'is-on' : ''}>
+            <MapIcon size={14} />
+          </ControlButton>
+        </Controls>
+        {miniOpen && (
+          <MiniMap
+            position="bottom-left"
+            style={{ width: mini.w, height: mini.h, margin, marginLeft: CONTROLS_W + margin * 2 }}
+            pannable
+            zoomable
+            nodeColor={(n) => {
+              if (n.type === 'region') return (n.data as { overview?: boolean; color?: string }).overview ? (n.data as { color: string }).color : 'transparent';
+              if (n.type === 'rings') return 'transparent';
+              const d = n.data as { groupColor?: string; color?: string; table?: { color?: string } };
+              return d.table?.color ?? d.groupColor ?? d.color ?? '#8892b0';
+            }}
+            nodeStrokeWidth={0}
+            maskColor="var(--minimap-mask)"
+          />
+        )}
       </ReactFlow>
     </div>
   );
