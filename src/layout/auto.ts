@@ -77,7 +77,8 @@ export async function autoLayoutDetailed(schema: Schema, opts: LayoutOptions): P
   const hidden = opts.hiddenRelations ?? new Set<string>();
   if (opts.mode === 'flow' || opts.only === 'flow') {
     const plan = flowPlan(schema, hidden);
-    const best = opts.only ? { pos: placeFlow(schema, plan, opts.direction), ...score(schema, placeFlow(schema, plan, opts.direction), hidden) } : await refineFlow(schema, plan, opts.direction, hidden, performance.now() + REFINE_MS);
+    const placed = placeFlow(schema, plan, opts.direction, hidden);
+    const best = opts.only ? { pos: placed, ...score(schema, placed, hidden) } : await refineFlow(schema, plan, opts.direction, hidden, performance.now() + REFINE_MS);
     return { pos: finalize(schema, best.pos), strategy: 'flow', crossings: best.crossings };
   }
   const placed = schema.tables.length > 1 && schema.tables.some((t) => t.x || t.y);
@@ -160,7 +161,7 @@ async function refineFlow(schema: Schema, start: FlowPlan, direction: Direction,
     a.crossings < b.crossings || (a.crossings === b.crossings && a.score < b.score - 1e-6);
   const climb = async (from: FlowPlan) => {
     let plan = from;
-    let pos = placeFlow(schema, plan, direction);
+    let pos = placeFlow(schema, plan, direction, hidden);
     let cur = score(schema, pos, hidden);
     let improved = true;
     while (improved && performance.now() < deadline) {
@@ -170,7 +171,7 @@ async function refineFlow(schema: Schema, start: FlowPlan, direction: Direction,
         if (++n % 50 === 0) await new Promise((r) => setTimeout(r)); // let the UI breathe
         const next = clonePlan(plan);
         if (!move(next)) continue;
-        const nextPos = placeFlow(schema, next, direction);
+        const nextPos = placeFlow(schema, next, direction, hidden);
         const sc = score(schema, nextPos, hidden);
         if (better(sc, cur)) {
           plan = next;
