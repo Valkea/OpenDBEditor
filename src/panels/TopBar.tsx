@@ -309,13 +309,14 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
             >
               {arrangeMode === 'groups' ? <Boxes size={14} /> : <Workflow size={14} />}
             </button>
-            <button
-              className="tb-btn tb-mini"
-              disabled={directionIgnored}
-              title={directionIgnored ? 'Direction: only used when arranging by dependency' : `Direction: ${direction === 'RIGHT' ? 'left → right' : 'top → bottom'}`}
-              onClick={() => st().set({ direction: direction === 'RIGHT' ? 'DOWN' : 'RIGHT' })}>
-              {direction === 'RIGHT' ? '→' : '↓'}
-            </button>
+            {!directionIgnored && (
+              <button
+                className="tb-btn tb-mini"
+                title={`Direction: ${direction === 'RIGHT' ? 'left → right' : 'top → bottom'}`}
+                onClick={() => st().set({ direction: direction === 'RIGHT' ? 'DOWN' : 'RIGHT' })}>
+                {direction === 'RIGHT' ? '→' : '↓'}
+              </button>
+            )}
             {arrangeMode === 'flow' && (
               <button
                 className="tb-btn tb-mini"
@@ -327,6 +328,7 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
             )}
           </div>
         )}
+        {view !== 'constellation' && <span className="tb-sep" />}
         <div className="split">
           <button className={`tb-btn ${focus.enabled ? 'is-on' : ''}`} title="Focus lens (F): fade tables beyond N hops of the selection" onClick={() => st().set({ focus: { ...focus, enabled: !focus.enabled } })}>
             <Focus size={15} />
