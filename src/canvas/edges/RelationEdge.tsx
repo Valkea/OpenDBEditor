@@ -173,11 +173,25 @@ function exitPoint(r: BundleEdgeData['a'], tx: number, ty: number, pad: number) 
   return { x: cx + dx * k, y: cy + dy * k };
 }
 
-function arrowHead(at: { x: number; y: number }, from: { x: number; y: number }, size: number) {
-  const len = Math.hypot(at.x - from.x, at.y - from.y) || 1;
-  const ux = (at.x - from.x) / len, uy = (at.y - from.y) / len;
-  const bx = at.x - ux * size, by = at.y - uy * size;
-  return `M ${at.x} ${at.y} L ${bx - uy * size * 0.6} ${by + ux * size * 0.6} L ${bx + uy * size * 0.6} ${by - ux * size * 0.6} Z`;
+type Pt = { x: number; y: number };
+
+/** Outline of a whole arrow (shaft plus a head at either end) as one closed shape, so nothing overlaps or shows through. */
+function arrowShape(pa: Pt, pb: Pt, shaft: number, head: number, headA: boolean, headB: boolean) {
+  const len = Math.hypot(pb.x - pa.x, pb.y - pa.y) || 1;
+  const ux = (pb.x - pa.x) / len, uy = (pb.y - pa.y) / len;
+  const vx = -uy, vy = ux;
+  const h = Math.min(head, len / ((headA ? 1 : 0) + (headB ? 1 : 0) || 1));
+  const hw = Math.max(head * 0.55, shaft * 1.1);
+  const ws = shaft / 2;
+  const at = (p: Pt, along: number, side: number): Pt => ({ x: p.x + ux * along + vx * side, y: p.y + uy * along + vy * side });
+  const pts: Pt[] = [];
+  if (headA) pts.push(pa, at(pa, h, hw), at(pa, h, ws));
+  else pts.push(at(pa, 0, ws));
+  if (headB) pts.push(at(pb, -h, ws), at(pb, -h, hw), pb, at(pb, -h, -hw), at(pb, -h, -ws));
+  else pts.push(at(pb, 0, ws), at(pb, 0, -ws));
+  if (headA) pts.push(at(pa, h, -ws), at(pa, h, -hw));
+  else pts.push(at(pa, 0, -ws));
+  return `M ${pts.map((p) => `${p.x} ${p.y}`).join(' L ')} Z`;
 }
 
 /** Group-to-group link at overview zoom: one thick line per pair of groups, with the number of foreign keys behind it. */
@@ -192,7 +206,7 @@ export const BundleEdge = memo(function BundleEdge({ id, data }: EdgeProps<Bundl
   const pb = exitPoint(b, ca.x, ca.y, 14);
   const n = ab + ba;
   const width = (1.5 + Math.sqrt(n) * 1.5) / zoom;
-  const head = (9 + Math.sqrt(n) * 2) / zoom;
+  const head = (7 + Math.sqrt(n) * 1.5) / zoom;
   // each count sits just inside the group its arrows start from, so it never hides a short line or covers a third group
   const inset = -11 / zoom;
   const qa = exitPoint(a, cb.x, cb.y, inset);
@@ -201,9 +215,8 @@ export const BundleEdge = memo(function BundleEdge({ id, data }: EdgeProps<Bundl
   return (
     <g className={cls} style={data.color ? ({ ['--rel' as string]: data.color } as React.CSSProperties) : undefined}>
       <title>{data.title}</title>
-      <BaseEdge id={id} path={`M ${pa.x} ${pa.y} L ${pb.x} ${pb.y}`} className="bundle-line" style={{ strokeWidth: width }} interactionWidth={width + 16} />
-      {ab > 0 && <path d={arrowHead(pb, pa, head)} className="bundle-head" />}
-      {ba > 0 && <path d={arrowHead(pa, pb, head)} className="bundle-head" />}
+      <BaseEdge id={id} path={`M ${pa.x} ${pa.y} L ${pb.x} ${pb.y}`} className="bundle-hit" interactionWidth={width + 16} />
+      <path d={arrowShape(pa, pb, width, head, ba > 0, ab > 0)} className="bundle-arrow" />
       <EdgeLabelRenderer>
         {ab > 0 && (
           <div className={`bundle-count ${data.dim ? 'is-dim' : ''}`} style={{ transform: `translate(-50%, -50%) translate(${qa.x}px, ${qa.y}px) scale(${1 / zoom})` }}>

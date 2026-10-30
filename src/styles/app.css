@@ -542,10 +542,9 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 .region-ov-name { font-size: 96px; font-weight: 800; letter-spacing: -.01em; color: var(--region); line-height: 1; }
 .region-ov-meta { font-size: 44px; color: var(--text-dim); }
 .bundle { transition: opacity .2s; }
-.bundle-line { stroke: var(--rel, var(--edge)); opacity: .55; fill: none; stroke-linecap: round; }
-.bundle-head { fill: var(--rel, var(--edge)); opacity: .75; }
-.bundle.is-lit .bundle-line { opacity: .95; }
-.bundle.is-lit .bundle-head { opacity: 1; }
+.bundle-hit { stroke: transparent; fill: none; }
+.bundle-arrow { fill: var(--rel, var(--edge)); opacity: .6; stroke: var(--rel, var(--edge)); stroke-width: 1; stroke-linejoin: round; vector-effect: non-scaling-stroke; pointer-events: none; }
+.bundle.is-lit .bundle-arrow { opacity: .95; }
 .bundle.is-dim { opacity: .15; }
 .bundle-count {
   position: absolute; pointer-events: none; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 99px;
