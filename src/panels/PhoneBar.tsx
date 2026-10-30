@@ -17,7 +17,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store/store';
 import { SidebarTabs } from './Sidebar';
 import { useIsPhone } from '../util/phone';
-import { VIEWS } from './TopBar';
+import { FlowPackIcon, VIEWS } from './TopBar';
 import { useActions } from './useActions';
 
 type Section = 'add' | 'layout' | 'view';
@@ -50,6 +50,7 @@ export function PhoneBar() {
   const busy = useStore((s) => s.layoutBusy);
   const direction = useStore((s) => s.direction);
   const arrangeMode = useStore((s) => s.arrangeMode);
+  const flowCompact = useStore((s) => s.flowCompact);
   const directionIgnored = arrangeMode === 'groups' && schema.groups.length > 0;
   const st = useStore.getState;
   const { toggleTheme, center } = useActions();
@@ -121,6 +122,13 @@ export function PhoneBar() {
                   icon={<span className="ribbon-glyph">{direction === 'RIGHT' ? '→' : '↓'}</span>}
                   label={direction === 'RIGHT' ? 'Left → right' : 'Top → bottom'}
                   onClick={() => st().set({ direction: direction === 'RIGHT' ? 'DOWN' : 'RIGHT' })}
+                />
+              )}
+              {arrangeMode === 'flow' && (
+                <Tool
+                  icon={<FlowPackIcon compact={flowCompact} direction={direction} size={18} />}
+                  label={flowCompact ? 'Compact' : 'Aligned'}
+                  onClick={() => st().set({ flowCompact: !flowCompact })}
                 />
               )}
             </>

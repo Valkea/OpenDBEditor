@@ -1,4 +1,8 @@
 import {
+  AlignCenterHorizontal,
+  AlignCenterVertical,
+  AlignStartHorizontal,
+  AlignStartVertical,
   Boxes,
   Code2,
   Download,
@@ -143,6 +147,7 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
   const busy = useStore((s) => s.layoutBusy);
   const direction = useStore((s) => s.direction);
   const arrangeMode = useStore((s) => s.arrangeMode);
+  const flowCompact = useStore((s) => s.flowCompact);
   // arranging by group tries several orientations and keeps the cleanest, so the direction has no say
   const directionIgnored = arrangeMode === 'groups' && schema.groups.length > 0;
   const st = useStore.getState;
@@ -169,6 +174,11 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
                 {!directionIgnored && (
                   <button onClick={() => st().set({ direction: direction === 'RIGHT' ? 'DOWN' : 'RIGHT' })}>
                     <span className="menu-glyph">{direction === 'RIGHT' ? '→' : '↓'}</span> Direction {direction === 'RIGHT' ? 'left → right' : 'top → bottom'} <small>switch</small>
+                  </button>
+                )}
+                {arrangeMode === 'flow' && (
+                  <button onClick={() => st().set({ flowCompact: !flowCompact })}>
+                    <FlowPackIcon compact={flowCompact} direction={direction} size={14} /> {flowCompact ? 'Compact columns' : 'Aligned columns'} <small>switch</small>
                   </button>
                 )}
               </>
@@ -306,6 +316,15 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
               onClick={() => st().set({ direction: direction === 'RIGHT' ? 'DOWN' : 'RIGHT' })}>
               {direction === 'RIGHT' ? '→' : '↓'}
             </button>
+            {arrangeMode === 'flow' && (
+              <button
+                className="tb-btn tb-mini"
+                title={flowCompact ? 'Compact columns: smaller drawing, more crossings (click: aligned)' : 'Aligned columns: cards line up with their links, fewer crossings (click: compact)'}
+                onClick={() => st().set({ flowCompact: !flowCompact })}
+              >
+                <FlowPackIcon compact={flowCompact} direction={direction} size={14} />
+              </button>
+            )}
           </div>
         )}
         <div className="split">
@@ -351,4 +370,10 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
       </div>
     </header>
   );
+}
+
+/** Packed or aligned columns, drawn along the way cards stack in the current direction. */
+export function FlowPackIcon({ compact, direction, size }: { compact: boolean; direction: 'RIGHT' | 'DOWN'; size: number }) {
+  const Icon = direction === 'RIGHT' ? (compact ? AlignStartHorizontal : AlignCenterHorizontal) : compact ? AlignStartVertical : AlignCenterVertical;
+  return <Icon size={size} />;
 }

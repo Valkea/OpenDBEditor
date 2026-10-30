@@ -60,6 +60,8 @@ interface State {
   layoutBusy: boolean;
   direction: Direction;
   arrangeMode: ArrangeMode;
+  /** Dependency arrangement: pack each column instead of lining cards up with their links (smaller, more crossings). */
+  flowCompact: boolean;
   toasts: Toast[];
   welcome: boolean;
   /** Bumped when the camera should frame the whole drawing. */
@@ -141,6 +143,7 @@ export const useStore = create<State>((set, get) => ({
   layoutBusy: false,
   direction: 'RIGHT',
   arrangeMode: 'groups',
+  flowCompact: false,
   toasts: [],
   welcome: false,
   fitRequest: 0,
@@ -315,10 +318,10 @@ export const useStore = create<State>((set, get) => ({
           d.groups.push(...s.groups);
         });
       }
-      const { schema, portals, hubThreshold, direction, arrangeMode } = get();
+      const { schema, portals, hubThreshold, direction, arrangeMode, flowCompact } = get();
       const hidden = hiddenRelations(schema, portals, hubThreshold);
       const before = routedCrossings(schema, hidden);
-      const pos = await autoLayout(schema, { direction, mode: arrangeMode, hiddenRelations: hidden });
+      const pos = await autoLayout(schema, { direction, mode: arrangeMode, hiddenRelations: hidden, compact: flowCompact });
       await get().animateTo(pos);
       const after = routedCrossings(get().schema, hidden);
       if (schema.tables.some((t) => t.x || t.y))

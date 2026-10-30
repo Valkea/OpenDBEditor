@@ -91,6 +91,20 @@ describe.runIf(existsSync(V15))('auto-layout on schema-v15', () => {
 });
 
 describe.runIf(existsSync(V15))('flow arrangement on schema-v15', () => {
+  it('compact columns give a smaller drawing than aligned ones', async () => {
+    for (const direction of ['RIGHT', 'DOWN'] as const) {
+      const area = async (compact: boolean) => {
+        const s = grouped();
+        apply(s, (await autoLayoutDetailed(s, { direction, mode: 'flow', compact })).pos);
+        expect(overlaps(s)).toBe(0);
+        const b = bounds(s);
+        console.log(`flow ${direction} ${compact ? 'compact' : 'aligned'}`, Math.round(b.w), 'x', Math.round(b.h));
+        return b.w * b.h;
+      };
+      expect(await area(true)).toBeLessThanOrEqual(await area(false));
+    }
+  }, 15000);
+
   it('puts every referenced table in an earlier column, without overlaps', async () => {
     for (const direction of ['RIGHT', 'DOWN'] as const) {
       const s = grouped();

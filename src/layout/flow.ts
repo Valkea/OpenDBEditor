@@ -159,6 +159,7 @@ function alignBand(
   size: (id: string) => number,
   links: Map<string, { other: string; mine: number; theirs: number }[]>,
   start: number,
+  align: boolean,
 ): Map<string, number> {
   const at = new Map<string, number>();
   const cols = Array.from({ length: plan.maxDepth + 1 }, (_, d) => d);
@@ -176,7 +177,7 @@ function alignBand(
       const weight: number[] = [];
       cell.forEach((id, i) => {
         const aims = (links.get(id) ?? []).filter((l) => at.has(l.other) && plan.depth.get(l.other) !== d && (pass > 0 || plan.depth.get(l.other)! < d));
-        if (aims.length) {
+        if (align && aims.length) {
           want.push(aims.reduce((n, l) => n + at.get(l.other)! + l.theirs - l.mine, 0) / aims.length - offset[i]);
           weight.push(aims.length);
         } else {
@@ -189,7 +190,7 @@ function alignBand(
   return at;
 }
 
-export function placeFlow(schema: Schema, plan: FlowPlan, direction: 'RIGHT' | 'DOWN', hidden: Set<string> = new Set()): Map<string, Pos> {
+export function placeFlow(schema: Schema, plan: FlowPlan, direction: 'RIGHT' | 'DOWN', hidden: Set<string> = new Set(), compact = false): Map<string, Pos> {
   const { bands, cells, maxDepth } = plan;
   const byId = new Map(schema.tables.map((t) => [t.id, t]));
   const h = (id: string) => cardHeight(byId.get(id)!, schema);
@@ -211,7 +212,7 @@ export function placeFlow(schema: Schema, plan: FlowPlan, direction: 'RIGHT' | '
     let y = 0;
     for (const b of bands) {
       const framed = b !== '';
-      const at = alignBand(plan, b, h, links, framed ? PAD.top : 0);
+      const at = alignBand(plan, b, h, links, framed ? PAD.top : 0, !compact);
       if (!at.size) continue;
       let bandH = 0;
       for (let d = 0; d <= maxDepth; d++)
@@ -233,7 +234,7 @@ export function placeFlow(schema: Schema, plan: FlowPlan, direction: 'RIGHT' | '
     let x = 0;
     for (const b of bands) {
       const framed = b !== '';
-      const at = alignBand(plan, b, () => CARD_W, links, framed ? PAD.side : 0);
+      const at = alignBand(plan, b, () => CARD_W, links, framed ? PAD.side : 0, !compact);
       if (!at.size) continue;
       let bandW = 0;
       for (let d = 0; d <= maxDepth; d++)

@@ -20,6 +20,8 @@ export interface LayoutOptions {
   /** Force one strategy instead of picking the best. */
   only?: Strategy;
   mode?: ArrangeMode;
+  /** Flow only: pack each column instead of lining cards up with their links. */
+  compact?: boolean;
 }
 
 type Pos = { x: number; y: number };
@@ -77,8 +79,8 @@ export async function autoLayoutDetailed(schema: Schema, opts: LayoutOptions): P
   const hidden = opts.hiddenRelations ?? new Set<string>();
   if (opts.mode === 'flow' || opts.only === 'flow') {
     const plan = flowPlan(schema, hidden);
-    const placed = placeFlow(schema, plan, opts.direction, hidden);
-    const best = opts.only ? { pos: placed, ...score(schema, placed, hidden) } : await refineFlow(schema, plan, opts.direction, hidden, performance.now() + REFINE_MS);
+    const placed = placeFlow(schema, plan, opts.direction, hidden, opts.compact);
+    const best = opts.only ? { pos: placed, ...score(schema, placed, hidden) } : await refineFlow(schema, plan, opts.direction, hidden, performance.now() + REFINE_MS, opts.compact);
     return { pos: finalize(schema, best.pos), strategy: 'flow', crossings: best.crossings };
   }
   const placed = schema.tables.length > 1 && schema.tables.some((t) => t.x || t.y);
@@ -122,7 +124,7 @@ const REFINE_MS = 1500;
  * Local search on a flow plan, keeping its promise that lines run from referenced to referencing:
  * swap two bands, swap neighbours in a cell, or move a table one column within its allowed range.
  */
-async function refineFlow(schema: Schema, start: FlowPlan, direction: Direction, hidden: Set<string>, deadline: number) {
+async function refineFlow(schema: Schema, start: FlowPlan, direction: Direction, hidden: Set<string>, deadline: number, compact = false) {
   const links = flowLinks(schema, hidden);
   const moves: ((p: FlowPlan) => boolean)[] = [];
   for (let i = 0; i < start.bands.length; i++)
@@ -161,7 +163,7 @@ async function refineFlow(schema: Schema, start: FlowPlan, direction: Direction,
     a.crossings < b.crossings || (a.crossings === b.crossings && a.score < b.score - 1e-6);
   const climb = async (from: FlowPlan) => {
     let plan = from;
-    let pos = placeFlow(schema, plan, direction, hidden);
+    let pos = placeFlow(schema, plan, direction, hidden, compact);
     let cur = score(schema, pos, hidden);
     let improved = true;
     while (improved && performance.now() < deadline) {
@@ -171,7 +173,7 @@ async function refineFlow(schema: Schema, start: FlowPlan, direction: Direction,
         if (++n % 50 === 0) await new Promise((r) => setTimeout(r)); // let the UI breathe
         const next = clonePlan(plan);
         if (!move(next)) continue;
-        const nextPos = placeFlow(schema, next, direction, hidden);
+        const nextPos = placeFlow(schema, next, direction, hidden, compact);
         const sc = score(schema, nextPos, hidden);
         if (better(sc, cur)) {
           plan = next;
