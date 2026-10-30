@@ -436,19 +436,21 @@ export function simplify(pts: Pt[]): Pt[] {
   return res;
 }
 
-/** Crossings between routed lines of different nets (shared trunks of one net don't count). */
-export function countRouteCrossings(routes: Map<string, Route>, netOf: (id: string) => string = (id) => id): number {
-  const hs: { y: number; x0: number; x1: number; net: string }[] = [];
-  const vs: { x: number; y0: number; y1: number; net: string }[] = [];
-  for (const [id, r] of routes) {
-    const net = netOf(id);
+/**
+ * Lines cutting through each other, even two lines to the same column: running along a shared trunk
+ * or ending on it touches only at an end point, which the strict bounds leave out.
+ */
+export function countRouteCrossings(routes: Map<string, Route>): number {
+  const hs: { y: number; x0: number; x1: number }[] = [];
+  const vs: { x: number; y0: number; y1: number }[] = [];
+  for (const r of routes.values()) {
     for (let k = 1; k < r.points.length; k++) {
       const a = r.points[k - 1], b = r.points[k];
-      if (a.y === b.y) hs.push({ y: a.y, x0: Math.min(a.x, b.x), x1: Math.max(a.x, b.x), net });
-      else if (a.x === b.x) vs.push({ x: a.x, y0: Math.min(a.y, b.y), y1: Math.max(a.y, b.y), net });
+      if (a.y === b.y) hs.push({ y: a.y, x0: Math.min(a.x, b.x), x1: Math.max(a.x, b.x) });
+      else if (a.x === b.x) vs.push({ x: a.x, y0: Math.min(a.y, b.y), y1: Math.max(a.y, b.y) });
     }
   }
   let n = 0;
-  for (const h of hs) for (const v of vs) if (h.net !== v.net && v.x > h.x0 && v.x < h.x1 && h.y > v.y0 && h.y < v.y1) n++;
+  for (const h of hs) for (const v of vs) if (v.x > h.x0 && v.x < h.x1 && h.y > v.y0 && h.y < v.y1) n++;
   return n;
 }

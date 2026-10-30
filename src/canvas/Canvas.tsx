@@ -138,6 +138,7 @@ export function Canvas() {
   const CONTROLS_W = 32; // 30px buttons + border
   const zoomDetail = useFlowStore(detailSelector);
   const detail: Detail = view === 'blueprint' ? 'full' : zoomDetail;
+  useEffect(() => useStore.setState({ viewDetail: detail }), [detail]);
   const farZoom = useFlowStore(overviewSelector);
   const overview = view === 'atlas' && farZoom && schema.groups.length > 0;
   const hidden = useHidden();

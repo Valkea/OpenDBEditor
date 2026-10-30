@@ -52,8 +52,7 @@ export function routeSchema(schema: Schema, detail: Detail, hidden: Set<string> 
   return routeEdges({ cards, regions, edges });
 }
 
-/** Line crossings as drawn (after routing). */
-export function routedCrossings(schema: Schema, hidden: Set<string> = new Set()): number {
-  const net = new Map(schema.relations.map((r) => [r.id, `${r.to.table}:${r.to.columns[0]}`]));
-  return countRouteCrossings(routeSchema(schema, 'full', hidden), (id) => net.get(id) ?? id);
+/** Line crossings as drawn (after routing) at the given detail level. */
+export function routedCrossings(schema: Schema, hidden: Set<string> = new Set(), detail: Detail = 'full'): number {
+  return countRouteCrossings(routeSchema(schema, detail, hidden));
 }

@@ -4,7 +4,7 @@
 
 import type { ElkExtendedEdge, ElkNode, ElkPort } from 'elkjs/lib/elk-api';
 import type { Schema } from '../model/types';
-import { CARD_W, cardHeight, rowCenterY, type Rect } from './geometry';
+import { CARD_W, cardHeight, rowCenterY, type Detail, type Rect } from './geometry';
 import { cellKey, clonePlan, depthRange, flowLinks, flowPlan, placeFlow, type FlowPlan } from './flow';
 import { routedCrossings } from './routing';
 
@@ -22,6 +22,8 @@ export interface LayoutOptions {
   mode?: ArrangeMode;
   /** Flow only: pack each column instead of lining cards up with their links. */
   compact?: boolean;
+  /** Detail level the lines are drawn at, so crossings are counted on the drawing the user sees. */
+  detail?: Detail;
 }
 
 type Pos = { x: number; y: number };
@@ -44,7 +46,7 @@ export interface LayoutResult {
 const TARGET_ASPECT = 1.7;
 
 /** Lower is better: crossings dominate, then an elongated or sprawling drawing. */
-function score(schema: Schema, pos: Map<string, Pos>, hidden: Set<string>): { score: number; crossings: number } {
+function score(schema: Schema, pos: Map<string, Pos>, hidden: Set<string>, detail: Detail): { score: number; crossings: number } {
   // rounded like the final drawing: half a pixel can change how lines are routed
   const probe: Schema = {
     ...schema,
@@ -53,7 +55,7 @@ function score(schema: Schema, pos: Map<string, Pos>, hidden: Set<string>): { sc
       return p ? { ...t, x: Math.round(p.x), y: Math.round(p.y) } : t;
     }),
   };
-  const crossings = routedCrossings(probe, hidden);
+  const crossings = routedCrossings(probe, hidden, detail);
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, area = 0;
   for (const t of probe.tables) {
     const h = cardHeight(t, schema);
@@ -67,7 +69,16 @@ function score(schema: Schema, pos: Map<string, Pos>, hidden: Set<string>): { sc
   const h = Math.max(1, y1 - y0);
   const aspect = Math.abs(Math.log(w / h / TARGET_ASPECT));
   const sprawl = (w * h) / Math.max(1, area);
-  return { score: crossings + aspect * 10 + sprawl * 1.5, crossings };
+  // empty room inside group frames: tall, airy groups cost a little
+  const frames = new Map<string, [number, number, number, number]>();
+  for (const t of probe.tables) {
+    if (!t.groupId) continue;
+    const f = frames.get(t.groupId) ?? [Infinity, Infinity, -Infinity, -Infinity];
+    frames.set(t.groupId, [Math.min(f[0], t.x), Math.min(f[1], t.y), Math.max(f[2], t.x + CARD_W), Math.max(f[3], t.y + cardHeight(t, schema))]);
+  }
+  let framed = 0;
+  for (const [fx0, fy0, fx1, fy1] of frames.values()) framed += (fx1 - fx0) * (fy1 - fy0);
+  return { score: crossings + aspect * 10 + sprawl * 1.5 + (framed / Math.max(1, area)) * 1.5, crossings };
 }
 
 export async function autoLayout(schema: Schema, opts: LayoutOptions): Promise<Map<string, Pos>> {
@@ -77,10 +88,11 @@ export async function autoLayout(schema: Schema, opts: LayoutOptions): Promise<M
 /** Try several strategies, polish the most promising ones, and keep the cleanest drawing (never one with more crossings than now). */
 export async function autoLayoutDetailed(schema: Schema, opts: LayoutOptions): Promise<LayoutResult> {
   const hidden = opts.hiddenRelations ?? new Set<string>();
+  const detail = opts.detail ?? 'full';
   if (opts.mode === 'flow' || opts.only === 'flow') {
     const plan = flowPlan(schema, hidden);
     const placed = placeFlow(schema, plan, opts.direction, hidden, opts.compact);
-    const best = opts.only ? { pos: placed, ...score(schema, placed, hidden) } : await refineFlow(schema, plan, opts.direction, hidden, performance.now() + REFINE_MS, opts.compact);
+    const best = opts.only ? { pos: placed, ...score(schema, placed, hidden, detail) } : await refineFlow(schema, plan, opts.direction, hidden, detail, performance.now() + REFINE_MS, opts.compact);
     return { pos: finalize(schema, best.pos), strategy: 'flow', crossings: best.crossings };
   }
   const placed = schema.tables.length > 1 && schema.tables.some((t) => t.x || t.y);
@@ -98,7 +110,7 @@ export async function autoLayoutDetailed(schema: Schema, opts: LayoutOptions): P
           ? await compoundLayout(schema, opts)
           : await islandsLayout(schema, opts, strategy);
     if (strategy !== 'current') removeBlockOverlaps(schema, raw, () => false);
-    const sc = score(schema, raw, hidden);
+    const sc = score(schema, raw, hidden, detail);
     candidates.push({ pos: raw, strategy, crossings: sc.crossings, score: sc.score });
   }
   // polish the best few; `current` always, so a hand-made drawing can only get better
@@ -109,22 +121,25 @@ export async function autoLayoutDetailed(schema: Schema, opts: LayoutOptions): P
     const end = performance.now() + REFINE_MS;
     for (const [i, c] of polish.entries()) {
       await new Promise((r) => setTimeout(r)); // let the UI breathe
-      Object.assign(c, refineBlocks(schema, c.pos, hidden, performance.now() + (end - performance.now()) / (polish.length - i)));
+      Object.assign(c, refineBlocks(schema, c.pos, hidden, detail, performance.now() + (end - performance.now()) / (polish.length - i)));
     }
   }
   const best = candidates.sort(better)[0];
+  if (!opts.only) Object.assign(best, refineBlocks(schema, best.pos, hidden, detail, performance.now() + COMPACT_MS, true));
   const pos = finalize(schema, best.pos);
   return { pos, strategy: best.strategy, crossings: best.crossings };
 }
 
 /** Time the local search may take in total, so big schemas stay responsive. */
 const REFINE_MS = 1500;
+/** Extra time for closing up gaps in the winning drawing. */
+const COMPACT_MS = 500;
 
 /**
  * Local search on a flow plan, keeping its promise that lines run from referenced to referencing:
  * swap two bands, swap neighbours in a cell, or move a table one column within its allowed range.
  */
-async function refineFlow(schema: Schema, start: FlowPlan, direction: Direction, hidden: Set<string>, deadline: number, compact = false) {
+async function refineFlow(schema: Schema, start: FlowPlan, direction: Direction, hidden: Set<string>, detail: Detail, deadline: number, compact = false) {
   const links = flowLinks(schema, hidden);
   const moves: ((p: FlowPlan) => boolean)[] = [];
   for (let i = 0; i < start.bands.length; i++)
@@ -164,7 +179,7 @@ async function refineFlow(schema: Schema, start: FlowPlan, direction: Direction,
   const climb = async (from: FlowPlan) => {
     let plan = from;
     let pos = placeFlow(schema, plan, direction, hidden, compact);
-    let cur = score(schema, pos, hidden);
+    let cur = score(schema, pos, hidden, detail);
     let improved = true;
     while (improved && performance.now() < deadline) {
       improved = false;
@@ -174,7 +189,7 @@ async function refineFlow(schema: Schema, start: FlowPlan, direction: Direction,
         const next = clonePlan(plan);
         if (!move(next)) continue;
         const nextPos = placeFlow(schema, next, direction, hidden, compact);
-        const sc = score(schema, nextPos, hidden);
+        const sc = score(schema, nextPos, hidden, detail);
         if (better(sc, cur)) {
           plan = next;
           pos = nextPos;
@@ -205,7 +220,7 @@ const clonePos = (pos: Map<string, Pos>) => new Map([...pos].map(([k, p]) => [k,
  * and keep the move whenever the drawing gets cleaner. ELK places blocks as boxes and can't
  * see which side of a group a line enters; this is where most leftover crossings come from.
  */
-export function refineBlocks(schema: Schema, start: Map<string, Pos>, hidden: Set<string>, deadline = Infinity): { pos: Map<string, Pos>; crossings: number; score: number } {
+export function refineBlocks(schema: Schema, start: Map<string, Pos>, hidden: Set<string>, detail: Detail = 'full', deadline = Infinity, slidesOnly = false): { pos: Map<string, Pos>; crossings: number; score: number } {
   const blocks = new Map<string, string[]>();
   for (const t of schema.tables) {
     const k = t.groupId ? `g:${t.groupId}` : t.id;
@@ -218,7 +233,7 @@ export function refineBlocks(schema: Schema, start: Map<string, Pos>, hidden: Se
   const list = [...blocks.values()].filter((ids) => !ids.some((id) => locked.has(id)));
   const heightOf = new Map(schema.tables.map((t) => [t.id, cardHeight(t, schema)]));
   let pos = clonePos(start);
-  let cur = score(schema, pos, hidden);
+  let cur = score(schema, pos, hidden, detail);
   const flip = (p: Map<string, Pos>, ids: string[], axis: 'x' | 'y') => {
     const size = (id: string) => (axis === 'x' ? CARD_W : heightOf.get(id)!);
     const lo = Math.min(...ids.map((id) => p.get(id)![axis]));
@@ -278,6 +293,87 @@ export function refineBlocks(schema: Schema, start: Map<string, Pos>, hidden: Se
           if (overlapsAny(p, a) || overlapsAny(p, b)) p.clear();
         });
       }
+  // slide a table toward its group's centre, or a block toward the drawing's centre, until it touches something
+  if (slidesOnly) moves.length = 0;
+  // cards side by side need room for line lanes between them; stacked ones don't
+  const GAP = 32;
+  const GAP_X = 100;
+  const rectOf = (p: Map<string, Pos>, id: string) => ({ ...p.get(id)!, w: CARD_W, h: heightOf.get(id)! });
+  /** Free distance from `mine` to the nearest obstacle ahead: other cards for a table, other blocks' frames for a block. */
+  const room = (p: Map<string, Pos>, mine: string[], asBlock: boolean, axis: 'x' | 'y', dir: number) => {
+    const own = new Set(mine);
+    const m = asBlock ? bounds(mine, schema, p) : rectOf(p, mine[0]);
+    const others = asBlock
+      ? [...blocks.values()].filter((b) => !b.some((id) => own.has(id))).map((b) => bounds(b, schema, p))
+      : schema.tables.filter((t) => !own.has(t.id)).map((t) => rectOf(p, t.id));
+    const gap = asBlock ? MARGIN : axis === 'x' ? GAP_X : GAP;
+    const across = asBlock ? MARGIN : axis === 'x' ? GAP : GAP_X;
+    const len = (r: Rect) => (axis === 'x' ? r.w : r.h);
+    let free = Infinity;
+    for (const o of others) {
+      const [a, sa, b, sb] = axis === 'x' ? [m.y, m.h, o.y, o.h] : [m.x, m.w, o.x, o.w];
+      if (a >= b + sb + across || b >= a + sa + across) continue; // not in the way
+      if (dir > 0 && o[axis] >= m[axis] + len(m)) free = Math.min(free, o[axis] - m[axis] - len(m) - gap);
+      if (dir < 0 && o[axis] + len(o) <= m[axis]) free = Math.min(free, m[axis] - o[axis] - len(o) - gap);
+    }
+    return Math.max(0, free);
+  };
+  const slide = (p: Map<string, Pos>, ids: string[], asBlock: boolean, target: Pos, axis: 'x' | 'y') => {
+    const c = center(p, ids);
+    const want = target[axis] - c[axis];
+    if (Math.abs(want) < 8) return p.clear();
+    const d = Math.sign(want) * Math.min(Math.abs(want), room(p, ids, asBlock, axis, Math.sign(want)));
+    if (Math.abs(d) < 8) return p.clear();
+    for (const id of ids) p.get(id)![axis] += d;
+  };
+  for (const ids of list) {
+    if (ids.length < 2) continue;
+    for (const id of ids)
+      for (const axis of ['x', 'y'] as const)
+        moves.push((p) => {
+          const r = bounds(ids, schema, p);
+          slide(p, [id], false, { x: r.x + r.w / 2, y: r.y + r.h / 2 }, axis);
+        });
+  }
+  // move a table into a free spot of another column of its group, wherever that shrinks the group most
+  const fits = (p: Map<string, Pos>, id: string, at: Pos) =>
+    schema.tables.every((t) => {
+      if (t.id === id) return true;
+      const o = p.get(t.id)!;
+      return at.x >= o.x + CARD_W + GAP_X || o.x >= at.x + CARD_W + GAP_X || at.y >= o.y + heightOf.get(t.id)! + GAP || o.y >= at.y + heightOf.get(id)! + GAP;
+    });
+  for (const ids of list) {
+    if (ids.length < 2) continue;
+    for (const id of ids)
+      moves.push((p) => {
+        const others = ids.filter((x) => x !== id);
+        const area = (at: Pos) => {
+          const r = bounds([...others, id], schema, new Map([...p, [id, at]]));
+          return r.w * r.h;
+        };
+        const was = area(p.get(id)!);
+        const h = heightOf.get(id)!;
+        const top = Math.min(...others.map((o) => p.get(o)!.y));
+        let best: { at: Pos; area: number } | null = null;
+        for (const x of new Set(others.map((o) => p.get(o)!.x))) {
+          const ys = [top, ...others.filter((o) => p.get(o)!.x === x).flatMap((o) => [p.get(o)!.y + heightOf.get(o)! + GAP, p.get(o)!.y - GAP - h])];
+          for (const y of ys) {
+            const at = { x, y };
+            if (x === p.get(id)!.x || !fits(p, id, at)) continue;
+            const a = area(at);
+            if (a < was - 1 && (!best || a < best.area)) best = { at, area: a };
+          }
+        }
+        if (!best) return p.clear();
+        p.set(id, best.at);
+      });
+  }
+  for (const ids of list)
+    for (const axis of ['x', 'y'] as const)
+      moves.push((p) => {
+        const all = bounds(schema.tables.map((t) => t.id), schema, p);
+        slide(p, ids, true, { x: all.x + all.w / 2, y: all.y + all.h / 2 }, axis);
+      });
   let improved = true;
   while (improved && performance.now() < deadline) {
     improved = false;
@@ -286,7 +382,7 @@ export function refineBlocks(schema: Schema, start: Map<string, Pos>, hidden: Se
       const next = clonePos(pos);
       move(next);
       if (!next.size) continue; // move not possible here
-      const sc = score(schema, next, hidden);
+      const sc = score(schema, next, hidden, detail);
       if (sc.crossings < cur.crossings || (sc.crossings === cur.crossings && sc.score < cur.score - 1e-6)) {
         pos = next;
         cur = sc;

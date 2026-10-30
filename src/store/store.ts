@@ -11,6 +11,7 @@ import { decodeSchema } from '../share/codec';
 import { diffSchemas } from '../analysis/diff';
 import { autoLayout, type ArrangeMode, type Direction } from '../layout/auto';
 import { suggestGroups } from '../layout/cluster';
+import type { Detail } from '../layout/geometry';
 import { routedCrossings } from '../layout/routing';
 import { inDegree } from '../analysis/graph';
 import { isPhone } from '../util/phone';
@@ -62,6 +63,8 @@ interface State {
   arrangeMode: ArrangeMode;
   /** Dependency arrangement: pack each column instead of lining cards up with their links (smaller, more crossings). */
   flowCompact: boolean;
+  /** Detail level the canvas currently draws at (set by the canvas from the zoom). */
+  viewDetail: Detail;
   toasts: Toast[];
   welcome: boolean;
   /** Bumped when the camera should frame the whole drawing. */
@@ -144,6 +147,7 @@ export const useStore = create<State>((set, get) => ({
   direction: 'RIGHT',
   arrangeMode: 'groups',
   flowCompact: false,
+  viewDetail: 'full',
   toasts: [],
   welcome: false,
   fitRequest: 0,
@@ -318,12 +322,12 @@ export const useStore = create<State>((set, get) => ({
           d.groups.push(...s.groups);
         });
       }
-      const { schema, portals, hubThreshold, direction, arrangeMode, flowCompact } = get();
+      const { schema, portals, hubThreshold, direction, arrangeMode, flowCompact, viewDetail } = get();
       const hidden = hiddenRelations(schema, portals, hubThreshold);
-      const before = routedCrossings(schema, hidden);
-      const pos = await autoLayout(schema, { direction, mode: arrangeMode, hiddenRelations: hidden, compact: flowCompact });
+      const before = routedCrossings(schema, hidden, viewDetail);
+      const pos = await autoLayout(schema, { direction, mode: arrangeMode, hiddenRelations: hidden, compact: flowCompact, detail: viewDetail });
       await get().animateTo(pos);
-      const after = routedCrossings(get().schema, hidden);
+      const after = routedCrossings(get().schema, hidden, viewDetail);
       if (schema.tables.some((t) => t.x || t.y))
         get().toast(after === before ? `No cleaner arrangement found · ${after} line crossings` : `Auto-layout done · line crossings ${before} → ${after}`);
     } catch (e) {
