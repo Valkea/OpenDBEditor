@@ -135,93 +135,38 @@ interface Port {
   dir: number;
 }
 
+/**
+ * Search window around a line's two cards, widened when nothing fits inside;
+ * the last one is the whole drawing. Each line gets its own grid built from
+ * what lies in its window only, so moving cards far away doesn't add grid
+ * lines (and thus new detours) next to it.
+ */
+const MARGINS = [160, 480, Infinity];
+/** Spans are compared in steps of this, so a small drag doesn't reorder the lines. */
+const SPAN_STEP = 60;
+
+interface Window {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+}
+
 export function routeEdges(input: RouterInput): Map<string, Route> {
   const { cards, edges } = input;
   const regions = input.regions ?? [];
   const out = new Map<string, Route>();
   if (!edges.length) return out;
   const byId = new Map(cards.map((c) => [c.id, c]));
-
-  // ---- grid coordinates ----
-  const xv: number[] = [];
-  const yv: number[] = [];
-  for (const c of cards) {
-    xv.push(c.x - CLEARANCE, c.x + c.w + CLEARANCE, c.x - STUB, c.x + c.w + STUB);
-    yv.push(c.y - CLEARANCE, c.y + c.h + CLEARANCE);
-  }
-  for (const r of regions) {
-    xv.push(r.x - REGION_GAP, r.x + r.w + REGION_GAP);
-    yv.push(r.y - REGION_GAP, r.y + r.h + REGION_GAP);
-  }
-  for (const e of edges) yv.push(e.src.y, e.dst.y);
-  const xs = uniqSorted(xv);
-  const ys = uniqSorted(yv);
-  const nx = xs.length;
-  const ny = ys.length;
-  const nodes = nx * ny;
-  const at = (i: number, j: number) => j * nx + i;
-
-  // ---- obstacles: node blocked / grid edge blocked (edge k = from node k to its E or S neighbour) ----
-  const nodeBlk = new Uint8Array(nodes);
-  const hBlk = new Uint8Array(nodes);
-  const vBlk = new Uint8Array(nodes);
-  for (const c of cards) {
-    const x0 = c.x - CLEARANCE + 0.25, x1 = c.x + c.w + CLEARANCE - 0.25;
-    const y0 = c.y - CLEARANCE + 0.25, y1 = c.y + c.h + CLEARANCE - 0.25;
-    const i0 = lowerBound(xs, x0), i1 = lowerBound(xs, x1); // xs[i0..i1-1] strictly inside
-    const j0 = lowerBound(ys, y0), j1 = lowerBound(ys, y1);
-    for (let j = j0; j < j1; j++) for (let i = i0; i < i1; i++) nodeBlk[at(i, j)] = 1;
-    // horizontal edges strictly inside in y, spanning inside in x (one node outside on each end included)
-    for (let j = j0; j < j1; j++) for (let i = Math.max(0, i0 - 1); i < i1; i++) hBlk[at(i, j)] = 1;
-    for (let i = i0; i < i1; i++) for (let j = Math.max(0, j0 - 1); j < j1; j++) vBlk[at(i, j)] = 1;
-  }
-
-  // ---- soft regions: which region a grid edge's midpoint falls in ----
-  const hReg = new Int16Array(nodes);
-  const vReg = new Int16Array(nodes);
   const regionIdx = new Map(regions.map((r, k) => [r.id, k + 1]));
-  regions.forEach((r, k) => {
-    const i0 = lowerBound(xs, r.x), i1 = lowerBound(xs, r.x + r.w + 0.01);
-    const j0 = lowerBound(ys, r.y), j1 = lowerBound(ys, r.y + r.h + 0.01);
-    for (let j = j0; j < j1; j++) for (let i = i0; i < i1 - 1; i++) hReg[at(i, j)] = k + 1;
-    for (let i = i0; i < i1; i++) for (let j = j0; j < j1 - 1; j++) vReg[at(i, j)] = k + 1;
-  });
 
-  // ---- usage by already routed lines: 0 = free, n+1 = only net n, -1 = several ----
-  const hUse = new Int32Array(nodes);
-  const vUse = new Int32Array(nodes);
-  const hPass = new Int32Array(nodes);
-  const vPass = new Int32Array(nodes);
-  const mark = (arr: Int32Array, k: number, net: number) => {
-    const v = arr[k];
-    if (v === 0) arr[k] = net + 1;
-    else if (v !== net + 1) arr[k] = -1;
-  };
-  const other = (v: number, net: number) => v !== 0 && v !== net + 1;
-
-  const portsOf = (cardId: string, y: number, asSource: boolean): Port[] => {
-    const c = byId.get(cardId);
-    if (!c) return [];
-    const j = lowerBound(ys, Math.round(y * 2) / 2);
-    const res: Port[] = [];
-    for (const side of ['R', 'L'] as Side[]) {
-      const sx = side === 'R' ? c.x + c.w + STUB : c.x - STUB;
-      const i = lowerBound(xs, sx);
-      if (i >= nx || xs[i] !== sx || j >= ny) continue;
-      const node = at(i, j);
-      if (nodeBlk[node]) continue;
-      const outDir = side === 'R' ? E : W;
-      res.push({ side, p: { x: side === 'R' ? c.x + c.w : c.x, y: ys[j] }, node, dir: asSource ? outDir : REVERSE[outDir] });
+  const portRows = new Map<string, number[]>();
+  for (const e of edges)
+    for (const end of [e.src, e.dst]) {
+      const rows = portRows.get(end.card);
+      if (rows) rows.push(end.y);
+      else portRows.set(end.card, [end.y]);
     }
-    return res;
-  };
-
-  // ---- A* scratch ----
-  const states = nodes * 4;
-  const g = new Float64Array(states);
-  const seen = new Int32Array(states);
-  const prev = new Int32Array(states);
-  let stamp = 0;
 
   const nets = new Map<string, number>();
   const netOf = (n: string) => {
@@ -229,21 +174,155 @@ export function routeEdges(input: RouterInput): Map<string, Route> {
     return nets.get(n)!;
   };
 
-  const order = [...edges].sort((a, b) => span(a) - span(b));
-  function span(e: RouterEdge) {
+  // already routed lines (before nudging): later lines pay for running along or crossing them
+  const hSegs: { y: number; x0: number; x1: number; net: number }[] = [];
+  const vSegs: { x: number; y0: number; y1: number; net: number }[] = [];
+
+  // shortest lines first (stable sort: equal spans keep the input order)
+  const span = (e: RouterEdge) => {
     const a = byId.get(e.src.card), b = byId.get(e.dst.card);
     if (!a || !b) return 0;
-    return Math.abs(a.x - b.x) + Math.abs(e.src.y - e.dst.y);
-  }
+    return Math.round((Math.abs(a.x - b.x) + Math.abs(e.src.y - e.dst.y)) / SPAN_STEP);
+  };
+  const order = edges
+    .map((e) => ({ e, k: span(e) }))
+    .sort((a, b) => a.k - b.k)
+    .map((o) => o.e);
 
   for (const e of order) {
-    const srcs = portsOf(e.src.card, e.src.y, true);
-    const dsts = portsOf(e.dst.card, e.dst.y, false);
-    if (!srcs.length || !dsts.length) {
+    const a = byId.get(e.src.card), b = byId.get(e.dst.card);
+    const net = netOf(e.net);
+    let route: Route | null = null;
+    if (a && b)
+      for (const m of MARGINS) {
+        route = routeIn(e, net, {
+          x0: Math.min(a.x, b.x) - STUB - m,
+          x1: Math.max(a.x + a.w, b.x + b.w) + STUB + m,
+          y0: Math.min(a.y, b.y) - m,
+          y1: Math.max(a.y + a.h, b.y + b.h) + m,
+        });
+        if (route) break;
+      }
+    if (!route) {
       out.set(e.id, fallback(e));
       continue;
     }
-    const net = netOf(e.net);
+    out.set(e.id, route);
+    const p = route.points;
+    for (let k = 1; k < p.length; k++) {
+      const u = p[k - 1], v = p[k];
+      if (u.y === v.y) hSegs.push({ y: u.y, x0: Math.min(u.x, v.x), x1: Math.max(u.x, v.x), net });
+      else if (u.x === v.x) vSegs.push({ x: u.x, y0: Math.min(u.y, v.y), y1: Math.max(u.y, v.y), net });
+    }
+  }
+
+  function routeIn(e: RouterEdge, net: number, w: Window): Route | null {
+    const meets = (b: Box, pad: number) => b.x - pad < w.x1 && b.x + b.w + pad > w.x0 && b.y - pad < w.y1 && b.y + b.h + pad > w.y0;
+    const near = cards.filter((c) => c.id === e.src.card || c.id === e.dst.card || meets(c, STUB));
+    const nearRegions = regions.filter((r) => meets(r, REGION_GAP));
+    const hNear = hSegs.filter((s) => s.y > w.y0 && s.y < w.y1 && s.x1 > w.x0 && s.x0 < w.x1);
+    const vNear = vSegs.filter((s) => s.x > w.x0 && s.x < w.x1 && s.y1 > w.y0 && s.y0 < w.y1);
+
+    // ---- grid coordinates ----
+    const xv: number[] = [];
+    const yv: number[] = [];
+    if (Number.isFinite(w.x0)) {
+      xv.push(w.x0, w.x1);
+      yv.push(w.y0, w.y1);
+    }
+    for (const c of near) {
+      xv.push(c.x - CLEARANCE, c.x + c.w + CLEARANCE, c.x - STUB, c.x + c.w + STUB);
+      yv.push(c.y - CLEARANCE, c.y + c.h + CLEARANCE);
+      for (const y of portRows.get(c.id) ?? []) yv.push(y);
+    }
+    for (const r of nearRegions) {
+      xv.push(r.x - REGION_GAP, r.x + r.w + REGION_GAP);
+      yv.push(r.y - REGION_GAP, r.y + r.h + REGION_GAP);
+    }
+    for (const s of hNear) yv.push(s.y);
+    for (const s of vNear) xv.push(s.x);
+    const xs = uniqSorted(xv);
+    const ys = uniqSorted(yv);
+    const nx = xs.length;
+    const ny = ys.length;
+    const nodes = nx * ny;
+    const at = (i: number, j: number) => j * nx + i;
+
+    // ---- obstacles: node blocked / grid edge blocked (edge k = from node k to its E or S neighbour) ----
+    const nodeBlk = new Uint8Array(nodes);
+    const hBlk = new Uint8Array(nodes);
+    const vBlk = new Uint8Array(nodes);
+    for (const c of near) {
+      const x0 = c.x - CLEARANCE + 0.25, x1 = c.x + c.w + CLEARANCE - 0.25;
+      const y0 = c.y - CLEARANCE + 0.25, y1 = c.y + c.h + CLEARANCE - 0.25;
+      const i0 = lowerBound(xs, x0), i1 = lowerBound(xs, x1); // xs[i0..i1-1] strictly inside
+      const j0 = lowerBound(ys, y0), j1 = lowerBound(ys, y1);
+      for (let j = j0; j < j1; j++) for (let i = i0; i < i1; i++) nodeBlk[at(i, j)] = 1;
+      // horizontal edges strictly inside in y, spanning inside in x (one node outside on each end included)
+      for (let j = j0; j < j1; j++) for (let i = Math.max(0, i0 - 1); i < i1; i++) hBlk[at(i, j)] = 1;
+      for (let i = i0; i < i1; i++) for (let j = Math.max(0, j0 - 1); j < j1; j++) vBlk[at(i, j)] = 1;
+    }
+
+    // ---- soft regions: which region a grid edge's midpoint falls in ----
+    const hReg = new Int16Array(nodes);
+    const vReg = new Int16Array(nodes);
+    for (const r of nearRegions) {
+      const k = regionIdx.get(r.id)!;
+      const i0 = lowerBound(xs, r.x), i1 = lowerBound(xs, r.x + r.w + 0.01);
+      const j0 = lowerBound(ys, r.y), j1 = lowerBound(ys, r.y + r.h + 0.01);
+      for (let j = j0; j < j1; j++) for (let i = i0; i < i1 - 1; i++) hReg[at(i, j)] = k;
+      for (let i = i0; i < i1; i++) for (let j = j0; j < j1 - 1; j++) vReg[at(i, j)] = k;
+    }
+
+    // ---- usage by already routed lines: 0 = free, n+1 = only net n, -1 = several ----
+    const hUse = new Int32Array(nodes);
+    const vUse = new Int32Array(nodes);
+    const hPass = new Int32Array(nodes);
+    const vPass = new Int32Array(nodes);
+    const mark = (arr: Int32Array, k: number, n: number) => {
+      const v = arr[k];
+      if (v === 0) arr[k] = n + 1;
+      else if (v !== n + 1) arr[k] = -1;
+    };
+    const other = (v: number) => v !== 0 && v !== net + 1;
+    for (const s of hNear) {
+      const j = lowerBound(ys, s.y);
+      if (ys[j] !== s.y) continue;
+      const i0 = lowerBound(xs, s.x0), i1 = lowerBound(xs, s.x1 + 0.01);
+      for (let i = i0; i < i1; i++) {
+        mark(hPass, at(i, j), s.net);
+        if (i + 1 < i1) mark(hUse, at(i, j), s.net);
+      }
+    }
+    for (const s of vNear) {
+      const i = lowerBound(xs, s.x);
+      if (xs[i] !== s.x) continue;
+      const j0 = lowerBound(ys, s.y0), j1 = lowerBound(ys, s.y1 + 0.01);
+      for (let j = j0; j < j1; j++) {
+        mark(vPass, at(i, j), s.net);
+        if (j + 1 < j1) mark(vUse, at(i, j), s.net);
+      }
+    }
+
+    const portsOf = (cardId: string, y: number, asSource: boolean): Port[] => {
+      const c = byId.get(cardId)!;
+      const j = lowerBound(ys, Math.round(y * 2) / 2);
+      const res: Port[] = [];
+      for (const side of ['R', 'L'] as Side[]) {
+        const sx = side === 'R' ? c.x + c.w + STUB : c.x - STUB;
+        const i = lowerBound(xs, sx);
+        if (i >= nx || xs[i] !== sx || j >= ny) continue;
+        const node = at(i, j);
+        if (nodeBlk[node]) continue;
+        const outDir = side === 'R' ? E : W;
+        res.push({ side, p: { x: side === 'R' ? c.x + c.w : c.x, y: ys[j] }, node, dir: asSource ? outDir : REVERSE[outDir] });
+      }
+      return res;
+    };
+
+    const srcs = portsOf(e.src.card, e.src.y, true);
+    const dsts = portsOf(e.dst.card, e.dst.y, false);
+    if (!srcs.length || !dsts.length) return null;
     const srcCard = byId.get(e.src.card)!, dstCard = byId.get(e.dst.card)!;
     const okRegions = new Set([regionIdx.get(srcCard.region ?? ''), regionIdx.get(dstCard.region ?? '')]);
     const tx = dsts.map((d) => xs[d.node % nx]);
@@ -255,11 +334,15 @@ export function routeEdges(input: RouterInput): Map<string, Route> {
       return best + Math.abs(y - ty);
     };
 
-    stamp++;
+    // ---- A* ----
+    const states = nodes * 4;
+    const g = new Float64Array(states);
+    const seen = new Uint8Array(states);
+    const prev = new Int32Array(states);
     const heap = new Heap();
     for (const s of srcs) {
       const st = s.node * 4 + s.dir;
-      seen[st] = stamp;
+      seen[st] = 1;
       g[st] = STUB;
       prev[st] = -1;
       heap.push(STUB + h(s.node), st);
@@ -297,49 +380,33 @@ export function routeEdges(input: RouterInput): Map<string, Route> {
         let cost = len;
         const reg = horiz ? hReg[ek] : vReg[ek];
         if (reg && !okRegions.has(reg)) cost += len * FOREIGN;
-        if (other(horiz ? hUse[ek] : vUse[ek], net)) cost += len * OVERLAP;
-        if (other(horiz ? vPass[nn] : hPass[nn], net)) cost += CROSS;
+        if (other(horiz ? hUse[ek] : vUse[ek])) cost += len * OVERLAP;
+        if (other(horiz ? vPass[nn] : hPass[nn])) cost += CROSS;
         if (nd !== d) cost += BEND;
         const ns = nn * 4 + nd;
         const ng = gc + cost;
-        if (seen[ns] === stamp && g[ns] <= ng) continue;
-        seen[ns] = stamp;
+        if (seen[ns] && g[ns] <= ng) continue;
+        seen[ns] = 1;
         g[ns] = ng;
         prev[ns] = st;
         heap.push(ng + h(nn), ns);
       }
     }
-    if (bestState < 0 || !bestDst) {
-      out.set(e.id, fallback(e));
-      continue;
-    }
+    if (bestState < 0 || !bestDst) return null;
 
-    // ---- rebuild path, record usage ----
+    // ---- rebuild path ----
     const chain: number[] = [];
     for (let s = bestState; s >= 0; s = prev[s]) chain.push(s);
     chain.reverse();
     const first = srcs.find((s) => s.node === chain[0] >> 2 && s.dir === (chain[0] & 3))!;
     const pts: Pt[] = [first.p];
-    for (let k = 0; k < chain.length; k++) {
-      const node = chain[k] >> 2;
-      const i = node % nx, j = (node - i) / nx;
-      pts.push({ x: xs[i], y: ys[j] });
-      if (k) {
-        const pn = chain[k - 1] >> 2;
-        const pi = pn % nx, pj = (pn - pi) / nx;
-        if (pj === j) {
-          mark(hUse, at(Math.min(pi, i), j), net);
-          mark(hPass, pn, net);
-          mark(hPass, node, net);
-        } else {
-          mark(vUse, at(i, Math.min(pj, j)), net);
-          mark(vPass, pn, net);
-          mark(vPass, node, net);
-        }
-      }
+    for (const st of chain) {
+      const node = st >> 2;
+      const i = node % nx;
+      pts.push({ x: xs[i], y: ys[(node - i) / nx] });
     }
     pts.push(bestDst.p);
-    out.set(e.id, { points: simplify(pts), srcSide: first.side, dstSide: bestDst.side });
+    return { points: simplify(pts), srcSide: first.side, dstSide: bestDst.side };
   }
 
   function fallback(e: RouterEdge): Route {

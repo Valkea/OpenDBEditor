@@ -5,7 +5,8 @@ import { generateSql } from '../src/sql/generator';
 import { applyLayout } from '../src/sql/layoutMeta';
 import { decodeSchema, encodeSchema } from '../src/share/codec';
 
-const V15 = '/Users/z943bm/Dev/genai-dataset-sync-tool/docs/schema-v15.sql';
+// private reference schema, not in the repo: SCHEMA_DIR=/path/to/dir with schema-v15.sql
+const REF = `${process.env.SCHEMA_DIR ?? '.missing'}/schema-v15.sql`;
 
 const strip = (s: ReturnType<typeof parseSql>['schema']) => ({
   ext: s.extensions.map((e) => e.name),
@@ -62,8 +63,8 @@ describe('parser', () => {
     expect(diagnostics.length).toBeGreaterThan(0);
   });
 
-  it.runIf(existsSync(V15))('parses schema-v15 and round-trips through SQL and the URL codec', () => {
-    const src = readFileSync(V15, 'utf8');
+  it.runIf(existsSync(REF))('parses the reference schema and round-trips through SQL and the URL codec', () => {
+    const src = readFileSync(REF, 'utf8');
     const first = parseSql(src);
     expect(first.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
     expect(first.schema.tables).toHaveLength(27);

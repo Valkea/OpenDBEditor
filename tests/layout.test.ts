@@ -7,10 +7,11 @@ import { CARD_W, cardHeight, countCrossings } from '../src/layout/geometry';
 import { routedCrossings } from '../src/layout/routing';
 import type { Schema } from '../src/model/types';
 
-const V15 = '/Users/z943bm/Dev/genai-dataset-sync-tool/docs/schema-v15.sql';
+// private reference schema, not in the repo: SCHEMA_DIR=/path/to/dir with schema-v15.sql
+const REF = `${process.env.SCHEMA_DIR ?? '.missing'}/schema-v15.sql`;
 
 function grouped(): Schema {
-  const s = parseSql(readFileSync(V15, 'utf8')).schema;
+  const s = parseSql(readFileSync(REF, 'utf8')).schema;
   const g = suggestGroups(s);
   s.groups = g.groups;
   for (const t of s.tables) t.groupId = g.assignment.get(t.id);
@@ -40,7 +41,7 @@ const bounds = (s: Schema) => {
   return { w, h };
 };
 
-describe.runIf(existsSync(V15))('auto-layout on schema-v15', () => {
+describe.runIf(existsSync(REF))('auto-layout on the reference schema', () => {
   it('compares strategies', async () => {
     for (const only of ['compound', 'islands-down', 'islands-right', 'islands-stress'] as Strategy[]) {
       const s = grouped();
@@ -90,7 +91,7 @@ describe.runIf(existsSync(V15))('auto-layout on schema-v15', () => {
   });
 });
 
-describe.runIf(existsSync(V15))('flow arrangement on schema-v15', () => {
+describe.runIf(existsSync(REF))('flow arrangement on the reference schema', () => {
   it('compact columns give a smaller drawing than aligned ones', async () => {
     for (const direction of ['RIGHT', 'DOWN'] as const) {
       const area = async (compact: boolean) => {

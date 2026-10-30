@@ -8,7 +8,8 @@ import { routeSchema, regionFrame } from '../src/layout/routing';
 import { routeEdges, type Route } from '../src/layout/router';
 import type { Schema } from '../src/model/types';
 
-const V15 = '/Users/z943bm/Dev/genai-dataset-sync-tool/docs/schema-v15.sql';
+// private reference schema, not in the repo: SCHEMA_DIR=/path/to/dir with schema-v15.sql
+const REF = `${process.env.SCHEMA_DIR ?? '.missing'}/schema-v15.sql`;
 
 type Seg = [number, number, number, number];
 const segsOf = (r: Route): Seg[] => r.points.slice(1).map((p, i) => [r.points[i].x, r.points[i].y, p.x, p.y]);
@@ -109,9 +110,9 @@ describe('router', () => {
   });
 });
 
-describe.runIf(existsSync(V15))('router on schema-v15', () => {
+describe.runIf(existsSync(REF))('router on the reference schema', () => {
   it('routes the arranged schema without cutting through cards', async () => {
-    const s = parseSql(readFileSync(V15, 'utf8')).schema;
+    const s = parseSql(readFileSync(REF, 'utf8')).schema;
     const g = suggestGroups(s);
     s.groups = g.groups;
     for (const t of s.tables) t.groupId = g.assignment.get(t.id);
@@ -127,15 +128,52 @@ describe.runIf(existsSync(V15))('router on schema-v15', () => {
     console.log(`routed ${routes.size} lines in ${ms.toFixed(1)} ms · bends ${bends} · overlaps ${shared} · card hits ${hits.length}`);
     if (process.env.DEBUG_ROUTES) {
       mkdirSync('.cache/playwright-mcp', { recursive: true });
-      writeFileSync('.cache/playwright-mcp/routes-v15.svg', toSvg(s, routes));
+      writeFileSync('.cache/playwright-mcp/routes-ref.svg', toSvg(s, routes));
     }
     expect(hits).toEqual([]);
     expect(shared).toBe(0);
   });
 
+  it('keeps lines away from a dragged group in shape', async () => {
+    const s = parseSql(readFileSync(REF, 'utf8')).schema;
+    const g = suggestGroups(s);
+    s.groups = g.groups;
+    for (const t of s.tables) t.groupId = g.assignment.get(t.id);
+    const pos = await autoLayout(s, { direction: 'RIGHT', mode: 'flow' });
+    for (const t of s.tables) Object.assign(t, pos.get(t.id));
+    const byId = new Map(s.tables.map((t) => [t.id, t]));
+    // directions of the segments: lanes may shift by a few px, but no new detour
+    const shape = (r: Route) => r.points.slice(1).map((p, i) => (p.x === r.points[i].x ? (p.y > r.points[i].y ? 'S' : 'N') : p.x > r.points[i].x ? 'E' : 'W')).join('');
+    let checked = 0;
+    const changed: string[] = [];
+    for (const group of s.groups) {
+      const moved = s.tables.filter((t) => t.groupId === group.id);
+      const f = regionFrame(s, group.id, 'full')!;
+      const close = (id: string) => {
+        const t = byId.get(id)!;
+        return t.groupId === group.id || (t.x - 200 < f.x + f.w && t.x + CARD_W + 200 > f.x && t.y - 200 < f.y + f.h && t.y + cardHeight(t, s) + 200 > f.y);
+      };
+      const before = routeSchema(s, 'full');
+      for (const [dx, dy] of [[2, -3], [-4, 5], [6, 2], [-2, -6], [9, 9], [-9, 4]]) {
+        for (const t of moved) Object.assign(t, { x: t.x + dx, y: t.y + dy });
+        const after = routeSchema(s, 'full');
+        for (const t of moved) Object.assign(t, { x: t.x - dx, y: t.y - dy });
+        for (const r of s.relations) {
+          if (close(r.from.table) || close(r.to.table)) continue;
+          checked++;
+          if (shape(before.get(r.id)!) !== shape(after.get(r.id)!)) changed.push(`${byId.get(r.from.table)!.name} -> ${byId.get(r.to.table)!.name} moving ${group.name} by ${dx},${dy}`);
+        }
+      }
+    }
+    console.log(`far lines: ${changed.length} / ${checked} changed shape`);
+    expect(checked).toBeGreaterThan(300);
+    // a far line can still follow a moved one that it runs next to, but rarely
+    expect(changed.length, changed.join('\n')).toBeLessThanOrEqual(4);
+  });
+
   it('stays fast enough to re-route while dragging on a large schema', async () => {
-    // 6 copies of v15 side by side, linked to each other through their hub tables
-    const base = parseSql(readFileSync(V15, 'utf8')).schema;
+    // 6 copies of the reference schema side by side, linked to each other through their hub tables
+    const base = parseSql(readFileSync(REF, 'utf8')).schema;
     const s: Schema = { ...base, tables: [], relations: [], groups: [] };
     for (let k = 0; k < 6; k++) {
       const suffix = `_${k}`;

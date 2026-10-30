@@ -154,14 +154,23 @@ function place(group: Item[], axis: 'x' | 'y', regions: Box[]) {
   const weight = group.map((it) => (it.fixed ? 1e6 : 1));
   const shifted = target.map((t, i) => t - i * gap);
   const iso = isotonic(shifted, weight);
+  let prev = -Infinity;
   group.forEach((it, i) => {
-    if (it.fixed) return;
+    if (it.fixed) {
+      prev = it.c;
+      return;
+    }
     const [lo, hi] = bounds[i];
     let v = iso[i] + i * gap;
     v = Math.min(Math.max(v, lo), hi);
     if (lo > hi) v = it.c;
-    else v = offFrames(v, it, axis, regions, lo, hi);
+    else {
+      v = offFrames(v, it, axis, regions, lo, hi);
+      // stepping off a frame may land on the previous lane
+      if (v < prev + gap && prev + gap <= hi) v = prev + gap;
+    }
     v = Math.round(v * 2) / 2;
+    prev = v;
     for (const s of it.segs) {
       s.route.points[s.k][axis] = v;
       s.route.points[s.k + 1][axis] = v;

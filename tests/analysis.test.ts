@@ -8,7 +8,8 @@ import { generateSql } from '../src/sql/generator';
 import { applyLayout } from '../src/sql/layoutMeta';
 import { parseSql } from '../src/sql/parser';
 
-const DOCS = '/Users/z943bm/Dev/genai-dataset-sync-tool/docs';
+// private reference schemas, not in the repo: SCHEMA_DIR=/path/to/dir with schema-v14.sql and schema-v15.sql
+const DOCS = process.env.SCHEMA_DIR ?? '.missing';
 const has = existsSync(`${DOCS}/schema-v15.sql`) && existsSync(`${DOCS}/schema-v14.sql`);
 const load = (v: number) => parseSql(readFileSync(`${DOCS}/schema-v${v}.sql`, 'utf8')).schema;
 const byRule = (s: ReturnType<typeof load>) => {
@@ -35,7 +36,7 @@ describe('lint', () => {
     expect(fixed.tables[1].indexes.map((i) => i.columns)).toEqual([['a_id']]);
   });
 
-  it.runIf(has)('finds the known issues in schema-v15 and the quick fixes clear them', () => {
+  it.runIf(has)('finds the known issues in the reference schema and the quick fixes clear them', () => {
     const s = load(15);
     const rules = byRule(s);
     expect(rules['fk-missing-index']).toBe(22);
