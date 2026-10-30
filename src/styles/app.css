@@ -410,7 +410,8 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 .react-flow__controls-button svg { fill: currentColor; }
 .react-flow__controls-button.is-on { color: var(--accent); }
 /* the move lock: first in the stack, filled while locked */
-.react-flow__controls-button.move-lock { order: -1; }
+.react-flow__controls-button.move-lock,
+.react-flow__controls-button.snap-grid { order: -1; }
 .react-flow__controls-button.move-lock.is-locked { color: var(--accent-ink); background: var(--accent); }
 .react-flow__controls-button.move-lock.is-locked:hover { background: color-mix(in srgb, var(--accent) 85%, white); }
 .react-flow__controls { display: flex; flex-direction: column; }

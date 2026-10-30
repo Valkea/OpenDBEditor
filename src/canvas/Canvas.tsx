@@ -25,7 +25,7 @@ import { uid } from '../model/ids';
 import type { Schema } from '../model/types';
 import { canonicalType, isSerial } from '../sql/pg';
 import { useDiff, useHidden, useIssues, useLens, usePath } from '../store/derived';
-import { Lock, LockOpen, Map as MapIcon, X } from 'lucide-react';
+import { Lock, LockOpen, Magnet, Map as MapIcon, X } from 'lucide-react';
 import { useStore } from '../store/store';
 import { useIsPhone } from '../util/phone';
 import { ArcEdge, BundleEdge, NoteLinkEdge, RelationEdge } from './edges/RelationEdge';
@@ -128,6 +128,21 @@ export function Canvas() {
     setMiniOpen(!miniOpen);
     try {
       localStorage.setItem('odbe-minimap', miniOpen ? 'off' : 'on');
+    } catch {
+      /* ignore */
+    }
+  };
+  const [snap, setSnap] = useState(() => {
+    try {
+      return localStorage.getItem('odbe-snap') === 'on';
+    } catch {
+      return false;
+    }
+  });
+  const toggleSnap = () => {
+    setSnap(!snap);
+    try {
+      localStorage.setItem('odbe-snap', snap ? 'off' : 'on');
     } catch {
       /* ignore */
     }
@@ -500,7 +515,7 @@ export function Canvas() {
       firstFrame.current = false;
       return;
     }
-    const t = window.setTimeout(() => rf.fitView({ padding: 0.12, duration: 500 }), starFocus !== undefined && isStars ? 760 : 80);
+    const t = window.setTimeout(() => rf.fitView({ padding: 0.12, duration: 500, maxZoom: 1 }), starFocus !== undefined && isStars ? 760 : 80);
     return () => window.clearTimeout(t);
   }, [isStars, starFocus, rf]);
 
@@ -527,6 +542,9 @@ export function Canvas() {
           }
           return;
         }
+        // snap to the background grid so cards line up with the dots/lines and with each other
+        const grid = view === 'blueprint' ? 24 : 22;
+        const at = (v: number) => (snap ? Math.round(v / grid) * grid : Math.round(v));
         st.setTransient((d) => {
           for (const c of moves) {
             if (c.type !== 'position' || !c.position) continue;
@@ -534,8 +552,16 @@ export function Canvas() {
               const gid = c.id.slice(7);
               const region = nodes.find((n) => n.id === c.id);
               if (!region) continue;
-              const dx = c.position.x - region.position.x;
-              const dy = c.position.y - region.position.y;
+              let dx = c.position.x - region.position.x;
+              let dy = c.position.y - region.position.y;
+              if (snap) {
+                // the group's top-left table lands on the grid; the others keep their offsets from it
+                const members = d.tables.filter((t) => t.groupId === gid);
+                const x0 = Math.min(...members.map((t) => t.x));
+                const y0 = Math.min(...members.map((t) => t.y));
+                dx = at(x0 + dx) - x0;
+                dy = at(y0 + dy) - y0;
+              }
               for (const t of d.tables) if (t.groupId === gid && !t.locked) {
                 t.x = Math.round(t.x + dx);
                 t.y = Math.round(t.y + dy);
@@ -543,21 +569,21 @@ export function Canvas() {
             } else if (c.id.startsWith('note:')) {
               const note = d.notes.find((n) => `note:${n.id}` === c.id);
               if (note) {
-                note.x = Math.round(c.position.x);
-                note.y = Math.round(c.position.y);
+                note.x = at(c.position.x);
+                note.y = at(c.position.y);
               }
             } else {
               const t = d.tables.find((x) => x.id === c.id);
               if (t) {
-                t.x = Math.round(c.position.x);
-                t.y = Math.round(c.position.y);
+                t.x = at(c.position.x);
+                t.y = at(c.position.y);
               }
             }
           }
         });
       }
     },
-    [nodes, view, setStarPos],
+    [nodes, view, setStarPos, snap],
   );
 
   const onConnect = useCallback((c: Connection) => {
@@ -636,7 +662,7 @@ export function Canvas() {
         minZoom={0.08}
         maxZoom={2.5}
         fitView
-        fitViewOptions={{ padding: 0.15 }}
+        fitViewOptions={{ padding: 0.15, maxZoom: 1 }}
         nodesConnectable={view !== 'constellation'}
         elevateEdgesOnSelect
         deleteKeyCode={null}
@@ -655,6 +681,17 @@ export function Canvas() {
               className={`move-lock ${moveLocked ? 'is-locked' : ''}`}
             >
               {moveLocked ? <Lock size={14} /> : <LockOpen size={14} />}
+            </ControlButton>
+          )}
+          {view !== 'constellation' && (
+            <ControlButton
+              onClick={toggleSnap}
+              title={snap ? 'Snapping to the grid: click to place tables, groups and notes freely' : 'Snap to grid: click so tables, groups and notes line up on the grid as you drag them'}
+              aria-label={snap ? 'Turn off snap to grid' : 'Snap to grid'}
+              aria-pressed={snap}
+              className={`snap-grid ${snap ? 'is-on' : ''}`}
+            >
+              <Magnet size={14} />
             </ControlButton>
           )}
           <ControlButton onClick={toggleMini} title={miniOpen ? 'Hide the minimap' : 'Show the minimap'} aria-label={miniOpen ? 'Hide the minimap' : 'Show the minimap'} className={miniOpen ? 'is-on' : ''}>

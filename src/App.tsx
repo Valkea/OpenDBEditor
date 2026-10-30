@@ -105,7 +105,7 @@ function Shell() {
   const fitRequest = useStore((s) => s.fitRequest);
   useEffect(() => {
     if (!fitRequest) return;
-    const t = window.setTimeout(() => rf.fitView({ padding: 0.08, duration: 600 }), 60);
+    const t = window.setTimeout(() => rf.fitView({ padding: 0.08, duration: 600, maxZoom: 1 }), 60);
     return () => window.clearTimeout(t);
   }, [fitRequest, rf]);
 
