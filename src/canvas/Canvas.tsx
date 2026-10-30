@@ -319,7 +319,8 @@ export function Canvas() {
           links: bundles?.linksOut.get(`region:${g.id}`),
           dim: !!hoverRegion && hoverRegion !== `region:${g.id}` && !bundles?.pairs.some((p) => (p.a === hoverRegion && p.b === `region:${g.id}`) || (p.b === hoverRegion && p.a === `region:${g.id}`)),
         },
-        zIndex: -1,
+        // React Flow lifts selected nodes by 1000; cancel it so a selected group stays under its tables
+        zIndex: selection?.kind === 'group' && selection.id === g.id ? -1001 : -1,
         draggable: !g.locked,
         selected: selection?.kind === 'group' && selection.id === g.id,
         // size through style only: React Flow measures handles just for nodes it sizes itself
