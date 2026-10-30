@@ -193,7 +193,10 @@ export const BundleEdge = memo(function BundleEdge({ id, data }: EdgeProps<Bundl
   const n = ab + ba;
   const width = (1.5 + Math.sqrt(n) * 1.5) / zoom;
   const head = (9 + Math.sqrt(n) * 2) / zoom;
-  const mx = (pa.x + pb.x) / 2, my = (pa.y + pb.y) / 2;
+  // each count sits just inside the group its arrows start from, so it never hides a short line or covers a third group
+  const inset = -11 / zoom;
+  const qa = exitPoint(a, cb.x, cb.y, inset);
+  const qb = exitPoint(b, ca.x, ca.y, inset);
   const cls = ['bundle', data.lit && 'is-lit', data.dim && 'is-dim'].filter(Boolean).join(' ');
   return (
     <g className={cls} style={data.color ? ({ ['--rel' as string]: data.color } as React.CSSProperties) : undefined}>
@@ -202,9 +205,16 @@ export const BundleEdge = memo(function BundleEdge({ id, data }: EdgeProps<Bundl
       {ab > 0 && <path d={arrowHead(pb, pa, head)} className="bundle-head" />}
       {ba > 0 && <path d={arrowHead(pa, pb, head)} className="bundle-head" />}
       <EdgeLabelRenderer>
-        <div className={`bundle-count ${data.dim ? 'is-dim' : ''}`} style={{ transform: `translate(-50%, -50%) translate(${mx}px, ${my}px) scale(${1 / zoom})` }}>
-          {n}
-        </div>
+        {ab > 0 && (
+          <div className={`bundle-count ${data.dim ? 'is-dim' : ''}`} style={{ transform: `translate(-50%, -50%) translate(${qa.x}px, ${qa.y}px) scale(${1 / zoom})` }}>
+            {ab}
+          </div>
+        )}
+        {ba > 0 && (
+          <div className={`bundle-count ${data.dim ? 'is-dim' : ''}`} style={{ transform: `translate(-50%, -50%) translate(${qb.x}px, ${qb.y}px) scale(${1 / zoom})` }}>
+            {ba}
+          </div>
+        )}
       </EdgeLabelRenderer>
     </g>
   );
