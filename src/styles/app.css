@@ -415,6 +415,9 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 .react-flow__controls-button.move-lock.is-locked { color: var(--accent-ink); background: var(--accent); }
 .react-flow__controls-button.move-lock.is-locked:hover { background: color-mix(in srgb, var(--accent) 85%, white); }
 .react-flow__controls { display: flex; flex-direction: column; }
+.react-flow__controls.mini-zoom { flex-direction: row; border-radius: 8px; z-index: 6; }
+.react-flow__controls.mini-zoom .react-flow__controls-button { width: 24px; height: 24px; padding: 5px; border-bottom: 0; }
+.react-flow__controls.mini-zoom .react-flow__controls-button + .react-flow__controls-button { border-left: 1px solid var(--line); }
 .lock-hint {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 12; display: flex; align-items: center; gap: 9px;
   width: max-content; max-width: calc(100% - 24px); padding: 7px 8px 7px 13px; border-radius: 12px; font-size: 12.5px; color: var(--text-dim);

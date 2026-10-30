@@ -147,10 +147,11 @@ export function Canvas() {
       /* ignore */
     }
   };
-  // zoom buttons in the corner, the minimap just right of them
+  // tool buttons top-left, the minimap bottom-left with its zoom pair in its corner
   const mini = phone ? { w: 120, h: 90 } : { w: 200, h: 150 };
   const margin = phone ? 8 : 14;
-  const CONTROLS_W = 32; // 30px buttons + border
+  const MINI_ZOOM_W = 50; // two 24px buttons + border
+  const MINI_ZOOM_H = 26;
   const zoomDetail = useFlowStore(detailSelector);
   const detail: Detail = view === 'blueprint' ? 'full' : zoomDetail;
   useEffect(() => useStore.setState({ viewDetail: detail }), [detail]);
@@ -672,7 +673,7 @@ export function Canvas() {
       >
         <Background variant={bg} gap={view === 'blueprint' ? 24 : 22} size={view === 'blueprint' ? 1 : 1.3} className="bg" />
         {view === 'blueprint' && <Background id="major" variant={BackgroundVariant.Lines} gap={120} className="bg-major" />}
-        <Controls showInteractive={false} position="bottom-left" className="controls" style={{ margin }}>
+        <Controls showZoom={false} showInteractive={false} position="top-left" className="controls" style={{ margin }}>
           {view !== 'constellation' && (
             <ControlButton
               onClick={() => setMoveLocked(!moveLocked)}
@@ -701,7 +702,7 @@ export function Canvas() {
         {miniOpen && (
           <MiniMap
             position="bottom-left"
-            style={{ width: mini.w, height: mini.h, margin, marginLeft: CONTROLS_W + margin * 2 }}
+            style={{ width: mini.w, height: mini.h, margin }}
             pannable
             zoomable
             nodeColor={(n) => {
@@ -714,12 +715,27 @@ export function Canvas() {
             maskColor="var(--minimap-mask)"
           />
         )}
+        {miniOpen && (
+          // zoom +/- tucked into the minimap's top-right corner
+          <Controls
+            orientation="horizontal"
+            showFitView={false}
+            showInteractive={false}
+            position="bottom-left"
+            className="controls mini-zoom"
+            style={{
+              margin: 0,
+              marginLeft: margin + mini.w - MINI_ZOOM_W - 6,
+              marginBottom: margin + mini.h - MINI_ZOOM_H - 6,
+            }}
+          />
+        )}
       </ReactFlow>
       {showLockHint && (
         <div className="lock-hint" role="status">
           <Lock size={14} />
           <span>
-            Tables are locked in place. Use the <b>lock button</b> at the bottom left to move them.
+            Tables are locked in place. Use the <b>lock button</b> at the top left to move them.
           </span>
           <button className="icon-btn" title="Got it" onClick={() => setLockHint(false)}>
             <X size={14} />
