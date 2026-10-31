@@ -805,9 +805,11 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
   .ct-row { flex-direction: column; align-items: flex-start; gap: 4px; }
   .ct-note { margin-left: 0; }
   .menu-pop button.ct-run small { display: none; } /* no keyboard */
+  /* the table / group editor: a full-screen sheet like the panels, above them so closing it goes back to the list */
   .inspector {
-    top: auto; left: 52px; right: 6px; bottom: 6px; width: auto; height: min(62dvh, 560px);
-    border-radius: 14px 14px 10px 10px; animation: sheetUp .22s var(--ease);
+    inset: 0; width: auto; height: auto; z-index: 26;
+    border: 0; border-radius: 0; box-shadow: none; background: var(--panel-solid); backdrop-filter: none;
+    animation: sheetUp .22s var(--ease);
   }
   .legend-hint { display: none; }
   .palette { top: 56px; }
