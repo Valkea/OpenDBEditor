@@ -1,7 +1,8 @@
 import { Panel } from '@xyflow/react';
-import { Boxes, ChevronDown, Focus, LayoutGrid, Loader2, Lock, LockOpen, Magnet, Waypoints, Workflow } from 'lucide-react';
+import { Boxes, ChevronDown, Focus, LayoutGrid, Loader2, Lock, LockOpen, Magnet, Route, Waypoints, Workflow, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { FlowPackIcon } from '../panels/TopBar';
+import { usePath } from '../store/derived';
 import { useStore } from '../store/store';
 
 /** Two-way choice: both options visible, the current one raised. */
@@ -96,6 +97,29 @@ function ArrangeMenu() {
   );
 }
 
+/** Shown while a join path is lit, in every view: reopens the Join paths panel, or clears the path. */
+function JoinPathPill() {
+  const res = usePath();
+  const { a, b } = useStore((s) => s.path);
+  const tables = useStore((s) => s.schema.tables);
+  if (!res?.rels) return null;
+  const name = (id?: string) => tables.find((t) => t.id === id)?.name;
+  const st = useStore.getState;
+  return (
+    <div className="ct-group ct-path" aria-label="Join path">
+      <button className="tb-btn is-on" title={`Join path ${name(a)} → ${name(b)}: click to open the Join paths panel`} onClick={() => st().set({ sidebar: 'paths' })}>
+        <Route size={15} />
+        <span className="tb-label">
+          {name(a)} → {name(b)}
+        </span>
+      </button>
+      <button className="tb-btn tb-mini" title="Clear the join path" aria-label="Clear the join path" onClick={() => st().set({ path: {} })}>
+        <X size={14} />
+      </button>
+    </div>
+  );
+}
+
 /**
  * Top-left canvas tools: everything that depends on the current view.
  * Layout (moves tables, undoable) on the left, view tools (what is drawn) on the right.
@@ -149,6 +173,7 @@ export function CanvasToolbar({ moveLocked, onMoveLocked, snap, onSnap }: { move
           </button>
         )}
       </div>
+      <JoinPathPill />
     </Panel>
   );
 }
