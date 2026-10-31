@@ -57,7 +57,7 @@ index, redundant indexes, foreign keys whose type doesn't match the column they 
 types used without the extension, `SET NULL` on a `NOT NULL` column, double-escaped comments,
 mixed-case names, unused enums… Click an issue to jump to it.
 
-<img src="public/medias/health.png" alt="The Health panel listing 11 foreign-key columns without an index and one type mismatch" width="100%">
+<img src="public/medias/health.png" alt="The Health panel with 2 errors, 3 warnings and 2 hints, every group unfolded: an index on an unknown column, SET NULL on a NOT NULL column, foreign keys without an index, a type mismatch, a mixed-case column and an unused enum" width="100%">
 
 ### 🔀 Join paths: from two tables to a ready-to-run query
 
