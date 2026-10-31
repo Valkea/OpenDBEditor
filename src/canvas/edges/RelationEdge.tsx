@@ -124,6 +124,8 @@ export const RelationEdge = memo(RelationEdgeImpl);
 export interface ArcEdgeData extends Record<string, unknown> {
   faded?: boolean;
   lit?: boolean;
+  /** hops the link reaches from the lens centre (1 = touches it) */
+  reach?: number;
   color?: string;
   path?: boolean;
 }
@@ -138,9 +140,10 @@ export const ArcEdge = memo(function ArcEdge({ id, sourceX, sourceY, targetX, ta
   const cx = mx - dy * bend;
   const cy = my + dx * bend;
   const path = `M ${sourceX} ${sourceY} Q ${cx} ${cy} ${targetX} ${targetY}`;
-  const cls = ['arc', selected && 'is-selected', data?.faded && 'is-faded', data?.lit && 'is-lit', data?.path && 'is-path'].filter(Boolean).join(' ');
+  const cls = ['arc', selected && 'is-selected', data?.faded && 'is-faded', data?.lit && 'is-lit', data?.reach && 'is-reach', data?.path && 'is-path'].filter(Boolean).join(' ');
+  const style = { ...(data?.color && { ['--rel' as string]: data.color }), ...(data?.reach && { ['--reach' as string]: data.reach }) } as React.CSSProperties;
   return (
-    <g className={cls} style={data?.color ? ({ ['--rel' as string]: data.color } as React.CSSProperties) : undefined}>
+    <g className={cls} style={style}>
       <BaseEdge id={id} path={path} className="arc-line" interactionWidth={10} />
       {data?.path && <path d={path} className="rel-flow" />}
     </g>

@@ -10,6 +10,8 @@ export interface StarNodeData extends Record<string, unknown> {
   lit?: boolean;
   focus?: boolean;
   ring?: number;
+  /** hops from the lens centre, for the stars it reaches */
+  hop?: number;
   diff?: 'added' | 'changed' | 'removed';
 }
 
@@ -23,7 +25,7 @@ function StarNodeImpl({ data, selected }: NodeProps<StarNodeType>) {
       style={{ width: r * 2, height: r * 2, ['--star' as string]: color }}
     >
       <span className="star-halo" style={{ width: r * 5, height: r * 5 }} />
-      <span className="star-core" />
+      <span className="star-core">{data.hop ? <span className="star-hop" style={{ fontSize: Math.max(9, Math.round(r * 0.75)) }}>{data.hop}</span> : null}</span>
       <Handle type="source" position={Position.Top} id="c" className="h-star" isConnectable={false} />
       <span className="star-label">
         {table.name}

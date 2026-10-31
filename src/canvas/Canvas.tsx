@@ -299,6 +299,7 @@ export function Canvas() {
             faded: isFaded(t.id) || (!lens && !!highlight.focusId && (!orbit || !!hover) && !highlight.lit.has(t.id)),
             lit: highlight.lit.has(t.id) && !!highlight.focusId,
             focus: t.id === starFocus,
+            hop: path?.rels ? undefined : lens?.get(t.id) || undefined,
             ring: dist?.get(t.id),
             diff: diff?.tableStatus.get(t.id),
           },
@@ -427,7 +428,9 @@ export function Canvas() {
         seen.add(key);
         const from = byId.get(r.from.table);
         const g = from?.groupId ? byGroup.get(from.groupId) : undefined;
-        const lit = !!highlight.focusId && (r.from.table === highlight.focusId || r.to.table === highlight.focusId);
+        // under the lens a link glows less the further it reaches from the centre (the farther of its two ends)
+        const reach = lens && !path?.rels && lens.has(r.from.table) && lens.has(r.to.table) ? Math.max(lens.get(r.from.table)!, lens.get(r.to.table)!) || 1 : undefined;
+        const lit = lens ? reach === 1 : !!highlight.focusId && (r.from.table === highlight.focusId || r.to.table === highlight.focusId);
         out.push({
           id: r.id,
           source: r.from.table,
@@ -435,7 +438,7 @@ export function Canvas() {
           sourceHandle: 'c',
           targetHandle: 'c',
           type: 'arc',
-          data: { lit, faded: (path?.rels ? !onPath : isFaded(r.from.table, r.to.table)) || (!lens && !!highlight.focusId && (!starFocus || !!hover) && !lit), color: g?.color, path: onPath },
+          data: { lit, reach, faded: (path?.rels ? !onPath : isFaded(r.from.table, r.to.table)) || (!lens && !!highlight.focusId && (!starFocus || !!hover) && !lit), color: g?.color, path: onPath },
           selected: selection?.kind === 'relation' && selection.id === r.id,
         });
       }
