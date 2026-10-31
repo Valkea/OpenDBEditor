@@ -148,11 +148,10 @@ export function Canvas() {
       /* ignore */
     }
   };
-  // view-dependent tools top-left, the minimap bottom-left with the camera buttons in its corner
+  // view-dependent tools top-left, the minimap bottom-left with the camera buttons along its bottom edge
   const mini = phone ? { w: 120, h: 90 } : { w: 200, h: 150 };
   const margin = phone ? 8 : 14;
-  const MINI_ZOOM_W = 101; // four 24px buttons + borders
-  const MINI_ZOOM_H = 26;
+  const MINI_ZOOM_W = 98; // four 24px buttons + borders, as rendered
   const zoomDetail = useFlowStore(detailSelector);
   const detail: Detail = view === 'blueprint' ? 'full' : zoomDetail;
   useEffect(() => useStore.setState({ viewDetail: detail }), [detail]);
@@ -692,7 +691,7 @@ export function Canvas() {
             maskColor="var(--minimap-mask)"
           />
         )}
-        {/* camera: zoom, fit and the minimap toggle, tucked into the minimap's top-right corner while it is shown */}
+        {/* camera: zoom, fit and the minimap toggle, centred along the minimap's bottom edge while it is shown */}
         <Controls
           orientation="horizontal"
           showInteractive={false}
@@ -701,7 +700,7 @@ export function Canvas() {
           className="controls mini-zoom"
           style={
             miniOpen
-              ? { margin: 0, marginLeft: margin + mini.w - MINI_ZOOM_W - 6, marginBottom: margin + mini.h - MINI_ZOOM_H - 6 }
+              ? { margin: 0, marginLeft: margin + (mini.w - MINI_ZOOM_W) / 2, marginBottom: margin + 6 }
               : { margin }
           }
         >
