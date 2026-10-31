@@ -544,6 +544,32 @@ export function Canvas() {
   }, [isStars, starFocus, rf]);
 
   // ---- interactions ----
+  // stars: a tap puts the table at the centre of the orbits, a second tap (or a tap on the centre star) opens its panel
+  // (counted here rather than with dblclick, which touch browsers don't reliably fire). The star
+  // starts sliding to the centre after the first tap, so the second one is matched by time and
+  // screen position, whatever ends up under the pointer: another star, a link or the empty sky.
+  const lastStarTap = useRef<{ id: string; at: number; x: number; y: number } | null>(null);
+  const secondStarTap = useCallback((e: React.MouseEvent) => {
+    const prev = lastStarTap.current;
+    if (!prev || performance.now() - prev.at > 400 || Math.hypot(e.clientX - prev.x, e.clientY - prev.y) > 30) return false;
+    lastStarTap.current = null;
+    useStore.getState().select({ kind: 'table', id: prev.id });
+    return true;
+  }, []);
+  const onStarTap = useCallback((e: React.MouseEvent, id: string) => {
+    if (secondStarTap(e)) return;
+    const st = useStore.getState();
+    // the centre star doesn't move, so one tap is enough to open it
+    if (st.starFocus === id) {
+      st.select({ kind: 'table', id });
+      return;
+    }
+    lastStarTap.current = { id, at: performance.now(), x: e.clientX, y: e.clientY };
+    st.set({ starFocus: id });
+    // an open table panel follows the new centre
+    if (st.selection?.kind === 'table' && st.selection.id !== id) st.select({ kind: 'table', id });
+  }, [secondStarTap]);
+
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
       const st = useStore.getState();
@@ -648,22 +674,22 @@ export function Canvas() {
         onNodeDragStop={() => useStore.setState((s) => ({ revision: s.revision + 1 }))}
         onNodeClick={(_, n) => {
           const st = useStore.getState();
-          if (n.id.startsWith('region:')) st.select({ kind: 'group', id: n.id.slice(7) });
+          if (n.type === 'star') onStarTap(_, n.id);
+          else if (n.id.startsWith('region:')) st.select({ kind: 'group', id: n.id.slice(7) });
           else if (n.id.startsWith('note:')) st.select({ kind: 'note', id: n.id.slice(5) });
-          else if (n.type === 'table' || n.type === 'star') {
+          else if (n.type === 'table') {
             const target = (_.target as HTMLElement).closest('[data-col]') as HTMLElement | null;
             st.select({ kind: 'table', id: n.id, columnId: target?.dataset.col });
           }
         }}
         onNodeDoubleClick={(_, n) => {
-          if (n.type === 'star') useStore.getState().set({ starFocus: n.id });
           if (n.type === 'region' && overview) {
             const f = regionFrame(useStore.getState().schema, n.id.slice(7), 'compact');
             if (f) rf.fitBounds({ x: f.x, y: f.y, width: f.w, height: f.h }, { padding: 0.15, duration: 600 });
           }
         }}
-        onEdgeClick={(_, e) => !e.id.startsWith('nl:') && useStore.getState().select({ kind: 'relation', id: e.id })}
-        onPaneClick={() => useStore.getState().select(null)}
+        onEdgeClick={(ev, e) => !secondStarTap(ev) && !e.id.startsWith('nl:') && useStore.getState().select({ kind: 'relation', id: e.id })}
+        onPaneClick={(ev) => !secondStarTap(ev) && useStore.getState().select(null)}
         onNodeMouseEnter={(_, n) => {
           if (n.type === 'table' || n.type === 'star') setHover(n.id);
           else if (n.type === 'region' && overview) setHoverRegion(n.id);

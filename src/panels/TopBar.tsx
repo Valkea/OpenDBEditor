@@ -29,7 +29,7 @@ import { useActions } from './useActions';
 export const VIEWS: { id: ViewMode; label: string; icon: typeof MapIcon; hint: string }[] = [
   { id: 'atlas', label: 'Atlas', icon: MapIcon, hint: 'Domains as regions, semantic zoom (1)' },
   { id: 'blueprint', label: 'Blueprint', icon: Ruler, hint: 'Classic full-detail ERD (2)' },
-  { id: 'constellation', label: 'Constellation', icon: Orbit, hint: 'Explore as a graph; double-click a star for orbits (3)' },
+  { id: 'constellation', label: 'Constellation', icon: Orbit, hint: 'Explore as a graph; click a star to centre it, click the centre to edit (3)' },
 ];
 
 function Menu({ label, icon, children, className = '' }: { label: string; icon: React.ReactNode; children: (close: () => void) => React.ReactNode; className?: string }) {

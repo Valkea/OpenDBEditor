@@ -25,7 +25,7 @@ A PostgreSQL schema designer that runs entirely in the browser.
 | --- | --- |
 | **Atlas** (1) | Groups become tinted regions ("islands"). Semantic zoom: far away each table is a block with its name in large type, mid-zoom shows only key columns, close-up shows every column with types, defaults, checks and comments. *Portals* turn references to hub tables into clickable chips instead of long lines. |
 | **Blueprint** (2) | Classic full-detail ERD with crow's-foot notation on drafting paper — the one to print or export. |
-| **Constellation** (3) | Tables as stars sized by columns and connections, pulled together by group. Double-click a star to arrange everything in orbits by foreign-key distance. |
+| **Constellation** (3) | Tables as stars sized by columns and connections, pulled together by group. Click a star to put it at the centre with everything else in orbits by foreign-key distance; click the centre star (or double-click any star) to edit its table. |
 
 ## Features
 
