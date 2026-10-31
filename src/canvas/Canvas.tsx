@@ -41,7 +41,7 @@ const edgeTypes = { relation: RelationEdge, arc: ArcEdge, notelink: NoteLinkEdge
 const detailSelector = (s: ReactFlowState): Detail => (s.transform[2] < 0.42 ? 'compact' : s.transform[2] < 0.75 ? 'keys' : 'full');
 /** Below this zoom, Atlas shows groups instead of tables. */
 const OVERVIEW_ZOOM = 0.2;
-const overviewSelector = (s: ReactFlowState) => s.transform[2] < OVERVIEW_ZOOM;
+export const overviewSelector = (s: ReactFlowState) => s.transform[2] < OVERVIEW_ZOOM;
 
 type Pos = { x: number; y: number };
 

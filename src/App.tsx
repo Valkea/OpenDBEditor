@@ -1,6 +1,6 @@
-import { ReactFlowProvider, useReactFlow } from '@xyflow/react';
+import { ReactFlowProvider, useReactFlow, useStore as useFlowStore } from '@xyflow/react';
 import { useEffect, useRef, useState } from 'react';
-import { Canvas } from './canvas/Canvas';
+import { Canvas, overviewSelector } from './canvas/Canvas';
 import { decodeSchema, encodeSchema, readHash } from './share/codec';
 import { CommandPalette } from './panels/CommandPalette';
 import { Inspector } from './panels/Inspector';
@@ -206,11 +206,7 @@ function Shell() {
           <Canvas />
           <Inspector />
           {welcome && <Welcome />}
-          <div className="legend-hint">
-            <span>Double-click canvas: new table</span>
-            <span>Drag a column dot onto another: foreign key</span>
-            <span>⌘K: commands</span>
-          </div>
+          <LegendHint />
           <div className="toasts">
             {toasts.map((t) => (
               <div key={t.id} className={`toast toast-${t.tone}`}>
@@ -227,6 +223,27 @@ function Shell() {
         </div>
       )}
       <CommandPalette open={palette} onClose={() => setPalette(false)} />
+    </div>
+  );
+}
+
+/** What the canvas gestures do in the current view. */
+function LegendHint() {
+  const view = useStore((s) => s.schema.view ?? 'atlas');
+  const hasGroups = useStore((s) => s.schema.groups.length > 0);
+  const farZoom = useFlowStore(overviewSelector);
+  const hints =
+    view === 'constellation'
+      ? ['Click a star: centre it', 'Click the centre star or double-click a star: open its table']
+      : view === 'atlas' && farZoom && hasGroups
+        ? ['Double-click a group: zoom into it', 'Double-click canvas: new table']
+        : ['Double-click canvas: new table', 'Drag a column dot onto another: foreign key'];
+  return (
+    <div className="legend-hint">
+      {hints.map((h) => (
+        <span key={h}>{h}</span>
+      ))}
+      <span>⌘K: commands</span>
     </div>
   );
 }
