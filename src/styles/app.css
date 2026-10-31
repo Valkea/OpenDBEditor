@@ -154,8 +154,8 @@ input, textarea, select { font: inherit; color: inherit; }
 .tb-mini { padding: 0 7px; font-family: var(--mono); font-size: 12px; }
 .split { display: flex; }
 .tb-sep { width: 1px; height: 18px; margin: 0 5px; background: var(--line); flex: none; }
-/* secondary labels go first, so Open / Export / Share keep theirs longer */
-@media (max-width: 1600px) { .tb-label-2 { display: none; } }
+/* the view names go last: they are what tells the three views apart */
+@media (max-width: 980px) { .tb-label-view { display: none; } }
 @media (max-width: 1280px) { .tb-label { display: none; } .schema-name { width: 140px; } }
 .menu-glyph { width: 14px; text-align: center; font-family: var(--mono); font-size: 12px; }
 @media (max-width: 1100px) { .schema-name { width: 120px; } }

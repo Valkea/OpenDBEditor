@@ -225,7 +225,7 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
         {VIEWS.map((v) => (
           <button key={v.id} role="tab" aria-selected={view === v.id} className={view === v.id ? 'is-on' : ''} title={v.hint} onClick={() => st().setView(v.id)}>
             <v.icon size={15} />
-            <span className="tb-label tb-label-2">{v.label}</span>
+            <span className="tb-label-view">{v.label}</span>
           </button>
         ))}
       </div>
