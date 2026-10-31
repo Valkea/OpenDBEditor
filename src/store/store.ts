@@ -169,7 +169,7 @@ export const useStore = create<State>((set, get) => ({
   starFocus: null,
   portals: false,
   moveLocked: true,
-  hubThreshold: 5,
+  hubThreshold: 1,
   layoutBusy: false,
   direction: 'RIGHT',
   arrangeMode: 'groups',

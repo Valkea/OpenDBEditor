@@ -120,6 +120,9 @@ function JoinPathPill() {
   );
 }
 
+/** Portal thresholds the toolbar steps through, like the lens reach: 1 to 5 inbound foreign keys. */
+const nextThreshold = (t: number) => (t % 5) + 1;
+
 /**
  * Top-left canvas tools: everything that depends on the current view.
  * Layout (moves tables, undoable) on the left, view tools (what is drawn) on the right.
@@ -178,6 +181,11 @@ export function CanvasToolbar({ moveLocked, onMoveLocked, snap, onSnap }: { move
           <button className={`tb-btn ${portals ? 'is-on' : ''}`} title={`Portals: references to busy tables (≥${hubThreshold} inbound foreign keys) become chips wearing the table's mark instead of long lines. Set a table to always or never in its inspector.`} onClick={() => st().set({ portals: !portals })}>
             <Waypoints size={15} />
             <span className="tb-label">Portals</span>
+          </button>
+        )}
+        {view === 'atlas' && portals && (
+          <button className="tb-btn tb-mini" title={`Portal threshold: tables with ${hubThreshold}+ inbound foreign keys become hubs (click for ${nextThreshold(hubThreshold)})`} onClick={() => st().set({ hubThreshold: nextThreshold(hubThreshold) })}>
+            ≥{hubThreshold}
           </button>
         )}
       </div>

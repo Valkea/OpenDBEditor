@@ -6,7 +6,7 @@ CREATE TYPE order_status AS ENUM ('cart', 'paid', 'shipped', 'delivered', 'refun
 CREATE TYPE book_format AS ENUM ('hardcover', 'paperback', 'ebook', 'audio');
 
 -- A lookup table almost everything points at: drawn as lines it would cross the whole map,
--- so with Portals on (5+ references) each reference becomes a chip wearing the table's mark.
+-- so with Portals on each reference becomes a chip wearing the table's mark.
 CREATE TABLE countries (
   code  char(2) PRIMARY KEY,
   name  text NOT NULL UNIQUE
