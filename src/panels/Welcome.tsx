@@ -38,7 +38,14 @@ export function Welcome() {
             <button className="btn lg" onClick={() => setPaste('')}>
               <ClipboardPaste size={16} /> Paste SQL
             </button>
-            <button className="btn lg" onClick={() => void st().importSql(sample, 'Bookshop (sample)')}>
+            <button
+              className="btn lg"
+              onClick={() => {
+                // portals on before the import, so the layout already leaves out the countries hub's lines
+                st().set({ portals: true });
+                void st().importSql(sample, 'Bookshop (sample)');
+              }}
+            >
               <Sparkles size={16} /> Try a sample
             </button>
             <button
