@@ -666,6 +666,9 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
   position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--mono); font-weight: 700; line-height: 1;
   color: color-mix(in srgb, var(--star) 35%, black); pointer-events: none;
 }
+/* the centre star out of the lens' reach: kept in sight, still and behind a dashed ring, unlike the stars the lens reaches */
+.star.is-far .star-core { outline: 2px dashed var(--star); outline-offset: 5px; box-shadow: none; }
+.star.is-far .star-halo { animation: none; opacity: .3; }
 .star.diff-added .star-core { box-shadow: 0 0 0 3px var(--ok), 0 0 26px var(--ok); }
 .star.diff-changed .star-core { box-shadow: 0 0 0 3px var(--warn), 0 0 26px var(--warn); }
 .star-label {

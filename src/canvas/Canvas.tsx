@@ -284,8 +284,12 @@ export function Canvas() {
         const R = (orbit.radii[orbit.radii.length - 1] ?? 0) + 40;
         out.push({ id: '__rings', type: 'rings', position: { x: -R, y: -R }, data: { radii: orbit.radii, unreachable: orbit.unreachable }, draggable: false, selectable: false, zIndex: -1, width: R * 2, height: R * 2 });
       }
+      // the lens centred on another star: the centre star stays in sight, showing how far it is even beyond the reach
+      const lensCenter = selection?.kind === 'table' ? selection.id : lensHover;
+      const awayFrom = lens && !path?.rels && starFocus && lensCenter && lensCenter !== starFocus && !lens.has(starFocus) ? lensCenter : null;
       for (const t of schema.tables) {
         const p = starPos?.get(t.id) ?? { x: 0, y: 0 };
+        const far = !!awayFrom && t.id === starFocus;
         const r = starRadius(t.columns.length, adj.get(t.id)?.length ?? 0);
         const g = t.groupId ? byGroup.get(t.groupId) : undefined;
         out.push({
@@ -296,10 +300,11 @@ export function Canvas() {
             table: t,
             r,
             color: t.color ?? g?.color ?? '#a5b4fc',
-            faded: isFaded(t.id) || (!lens && !!highlight.focusId && (!orbit || !!hover) && !highlight.lit.has(t.id)),
+            faded: !far && (isFaded(t.id) || (!lens && !!highlight.focusId && (!orbit || !!hover) && !highlight.lit.has(t.id))),
             lit: highlight.lit.has(t.id) && !!highlight.focusId,
             focus: t.id === starFocus,
-            hop: path?.rels ? undefined : lens?.get(t.id) || undefined,
+            hop: far ? (dist?.get(awayFrom!) ?? Infinity) : path?.rels ? undefined : lens?.get(t.id) || undefined,
+            far,
             ring: dist?.get(t.id),
             diff: diff?.tableStatus.get(t.id),
           },
@@ -408,7 +413,7 @@ export function Canvas() {
       });
     }
     return out;
-  }, [schema, view, detail, selection, hidden, diff, issueCount, path, lens, measured, flyTo, starPos, starFocus, orbit, highlight, overview, bundles, hoverRegion]);
+  }, [schema, view, detail, selection, hidden, diff, issueCount, path, lens, lensHover, measured, flyTo, starPos, starFocus, orbit, highlight, overview, bundles, hoverRegion]);
   // the move lock overrides each node's own draggable flag (which only reflects per-table locks)
   const shownNodes = useMemo(() => (moveLocked && view !== 'constellation' ? nodes.map((n) => (n.draggable === false ? n : { ...n, draggable: false })) : nodes), [nodes, moveLocked, view]);
 

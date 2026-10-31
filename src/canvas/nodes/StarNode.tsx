@@ -12,6 +12,8 @@ export interface StarNodeData extends Record<string, unknown> {
   ring?: number;
   /** hops from the lens centre, for the stars it reaches */
   hop?: number;
+  /** the centre star seen from a lens centred elsewhere, out of its reach (hop = Infinity when not connected at all) */
+  far?: boolean;
   diff?: 'added' | 'changed' | 'removed';
 }
 
@@ -21,11 +23,11 @@ function StarNodeImpl({ data, selected }: NodeProps<StarNodeType>) {
   const { r, color, table } = data;
   return (
     <div
-      className={['star', selected && 'is-selected', data.faded && 'is-faded', data.lit && 'is-lit', data.focus && 'is-focus', data.diff && `diff-${data.diff}`].filter(Boolean).join(' ')}
+      className={['star', selected && 'is-selected', data.faded && 'is-faded', data.lit && 'is-lit', data.focus && 'is-focus', data.far && 'is-far', data.diff && `diff-${data.diff}`].filter(Boolean).join(' ')}
       style={{ width: r * 2, height: r * 2, ['--star' as string]: color }}
     >
       <span className="star-halo" style={{ width: r * 5, height: r * 5 }} />
-      <span className="star-core">{data.hop ? <span className="star-hop" style={{ fontSize: Math.max(9, Math.round(r * 0.75)) }}>{data.hop}</span> : null}</span>
+      <span className="star-core">{data.hop ? <span className="star-hop" style={{ fontSize: Math.max(9, Math.round(r * 0.75)) }}>{data.hop === Infinity ? '∞' : data.hop}</span> : null}</span>
       <Handle type="source" position={Position.Top} id="c" className="h-star" isConnectable={false} />
       <span className="star-label">
         {table.name}
