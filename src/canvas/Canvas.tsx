@@ -675,7 +675,7 @@ export function Canvas() {
       >
         <Background variant={bg} gap={view === 'blueprint' ? 24 : 22} size={view === 'blueprint' ? 1 : 1.3} className="bg" />
         {view === 'blueprint' && <Background id="major" variant={BackgroundVariant.Lines} gap={120} className="bg-major" />}
-        <CanvasToolbar moveLocked={moveLocked} onMoveLocked={setMoveLocked} snap={snap} onSnap={toggleSnap} phone={phone} />
+        <CanvasToolbar moveLocked={moveLocked} onMoveLocked={setMoveLocked} snap={snap} onSnap={toggleSnap} />
         {miniOpen && (
           <MiniMap
             position="bottom-left"

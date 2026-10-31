@@ -100,7 +100,7 @@ function ArrangeMenu() {
  * Top-left canvas tools: everything that depends on the current view.
  * Layout (moves tables, undoable) on the left, view tools (what is drawn) on the right.
  */
-export function CanvasToolbar({ moveLocked, onMoveLocked, snap, onSnap, phone }: { moveLocked: boolean; onMoveLocked: (v: boolean) => void; snap: boolean; onSnap: () => void; phone: boolean }) {
+export function CanvasToolbar({ moveLocked, onMoveLocked, snap, onSnap }: { moveLocked: boolean; onMoveLocked: (v: boolean) => void; snap: boolean; onSnap: () => void }) {
   const view = useStore((s) => s.schema.view ?? 'atlas');
   const focus = useStore((s) => s.focus);
   const portals = useStore((s) => s.portals);
@@ -118,8 +118,7 @@ export function CanvasToolbar({ moveLocked, onMoveLocked, snap, onSnap, phone }:
           >
             {moveLocked ? <Lock size={15} /> : <LockOpen size={15} />}
           </button>
-          {/* on a phone, Arrange and the view tools live in the bottom bar */}
-          {!phone && <ArrangeMenu />}
+          <ArrangeMenu />
           <button
             className={`tb-btn ${snap ? 'is-on' : ''}`}
             onClick={onSnap}
@@ -131,27 +130,25 @@ export function CanvasToolbar({ moveLocked, onMoveLocked, snap, onSnap, phone }:
           </button>
         </div>
       )}
-      {!phone && (
-        <div className="ct-group" aria-label="View tools">
-          <div className="split">
-            <button className={`tb-btn ${focus.enabled ? 'is-on' : ''}`} title="Focus lens (F): fade tables beyond N hops of the selection" onClick={() => st().set({ focus: { ...focus, enabled: !focus.enabled } })}>
-              <Focus size={15} />
-              <span className="tb-label">Lens</span>
-            </button>
-            {focus.enabled && (
-              <button className="tb-btn tb-mini" title={`Lens reach: ${focus.hops} hop${focus.hops > 1 ? 's' : ''} (click for ${(focus.hops % 3) + 1})`} onClick={() => st().set({ focus: { ...focus, hops: (focus.hops % 3) + 1 } })}>
-                {focus.hops}
-              </button>
-            )}
-          </div>
-          {view === 'atlas' && (
-            <button className={`tb-btn ${portals ? 'is-on' : ''}`} title="Portals: references to hub tables (≥5 inbound FKs) become chips instead of long lines" onClick={() => st().set({ portals: !portals })}>
-              <Waypoints size={15} />
-              <span className="tb-label">Portals</span>
+      <div className="ct-group" aria-label="View tools">
+        <div className="split">
+          <button className={`tb-btn ${focus.enabled ? 'is-on' : ''}`} title="Focus lens (F): fade tables beyond N hops of the selection" onClick={() => st().set({ focus: { ...focus, enabled: !focus.enabled } })}>
+            <Focus size={15} />
+            <span className="tb-label">Lens</span>
+          </button>
+          {focus.enabled && (
+            <button className="tb-btn tb-mini" title={`Lens reach: ${focus.hops} hop${focus.hops > 1 ? 's' : ''} (click for ${(focus.hops % 3) + 1})`} onClick={() => st().set({ focus: { ...focus, hops: (focus.hops % 3) + 1 } })}>
+              {focus.hops}
             </button>
           )}
         </div>
-      )}
+        {view === 'atlas' && (
+          <button className={`tb-btn ${portals ? 'is-on' : ''}`} title="Portals: references to hub tables (≥5 inbound FKs) become chips instead of long lines" onClick={() => st().set({ portals: !portals })}>
+            <Waypoints size={15} />
+            <span className="tb-label">Portals</span>
+          </button>
+        )}
+      </div>
     </Panel>
   );
 }

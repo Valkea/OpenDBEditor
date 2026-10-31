@@ -18,7 +18,7 @@ export async function exportPng(rf: ReturnType<typeof useReactFlow>, theme: stri
   return toPng(el, { backgroundColor: bg, width: w, height: h, style: { width: `${w}px`, height: `${h}px`, transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})` } });
 }
 
-/** File, share and theme actions shared by the top bar and the phone bar. */
+/** File, share and theme actions shared by the top bar and the rail. */
 export function useActions() {
   const rf = useReactFlow();
   const st = useStore.getState;

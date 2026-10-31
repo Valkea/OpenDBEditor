@@ -36,6 +36,7 @@ import { newGroupColor, type SidebarTab, useStore } from '../store/store';
 import { copyText, download, pickFile, slug } from '../util/files';
 import { CodeEditor } from './CodeEditor';
 import { IssueRow } from './IssueRow';
+import { useIsPhone } from '../util/phone';
 import { useActions } from './useActions';
 import { useFly } from './useFly';
 
@@ -49,7 +50,7 @@ const TABS: { id: SidebarTab; label: string; icon: typeof Boxes }[] = [
   { id: 'diff', label: 'Compare', icon: GitCompareArrows },
 ];
 
-/** The panel buttons: down the left rail, or at the top of the phone bar. */
+/** The panel buttons down the left rail. */
 export function SidebarTabs({ onPick }: { onPick?: () => void }) {
   const tab = useStore((s) => s.sidebar);
   const issues = useIssues();
@@ -81,8 +82,15 @@ export function SidebarTabs({ onPick }: { onPick?: () => void }) {
 /** The live SQL pane: the schema as text, opening on the right. */
 function SqlButton() {
   const sqlOpen = useStore((s) => s.sqlOpen);
+  const phone = useIsPhone();
   return (
-    <button className={`rail-btn ${sqlOpen ? 'is-active' : ''}`} title="Live SQL pane (S)" aria-pressed={sqlOpen} onClick={() => useStore.getState().set({ sqlOpen: !sqlOpen })}>
+    <button
+      className={`rail-btn ${sqlOpen ? 'is-active' : ''}`}
+      title="Live SQL pane (S)"
+      aria-pressed={sqlOpen}
+      // on a phone the pane covers the side panel: show one at a time
+      onClick={() => useStore.getState().set(phone ? { sqlOpen: !sqlOpen, sidebar: null } : { sqlOpen: !sqlOpen })}
+    >
       <Code2 size={18} />
     </button>
   );
@@ -101,10 +109,11 @@ function ThemeButton() {
 
 export function SidebarRail() {
   const welcome = useStore((s) => s.welcome);
+  const phone = useIsPhone();
   if (welcome) return null; // nothing open yet: keep the welcome screen clean
   return (
     <nav className="rail">
-      <SidebarTabs />
+      <SidebarTabs onPick={phone ? () => useStore.getState().set({ sqlOpen: false }) : undefined} />
       <span className="rail-sep" role="separator" />
       <SqlButton />
       <ThemeButton />

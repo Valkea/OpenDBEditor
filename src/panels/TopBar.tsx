@@ -6,6 +6,7 @@ import {
   Code2,
   Download,
   FileUp,
+  FolderOpen,
   Image,
   Link2,
   Map as MapIcon,
@@ -21,7 +22,6 @@ import { useEffect, useRef, useState } from 'react';
 import type { ViewMode } from '../model/types';
 import { generateSql } from '../sql/generator';
 import { useStore } from '../store/store';
-import { useIsPhone } from '../util/phone';
 import { download, slug } from '../util/files';
 import { Promises } from './Promises';
 import { useActions } from './useActions';
@@ -132,13 +132,17 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
   const canUndo = useStore((s) => s.past.length > 0);
   const canRedo = useStore((s) => s.future.length > 0);
   const st = useStore.getState;
-  const phone = useIsPhone();
   const { share, openFile, exportSql, exportImage } = useActions();
 
   const exportMenu = (
-    <Menu label={phone ? '' : 'Export'} icon={<Download size={15} />}>
+    <Menu label="Export" icon={<><Download size={15} className="tb-file-wide" /><FolderOpen size={15} className="tb-file-narrow" /></>}>
       {(close) => (
         <>
+          {/* on a narrow phone Open folds in here, at the same spot */}
+          <button className="tb-file-narrow" onClick={() => { close(); void openFile(); }}>
+            <FileUp size={14} /> Open a .sql file
+          </button>
+          <div className="menu-sep tb-file-narrow">Export</div>
           <button onClick={() => { exportSql(true); close(); }}>
             <Download size={14} /> SQL + layout <small>re-opens with positions</small>
           </button>
@@ -153,45 +157,6 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
     </Menu>
   );
 
-  if (phone)
-    return (
-      <header className="topbar topbar-phone">
-        <Brand />
-        <input
-          className="schema-name"
-          size={Math.max(4, schema.name.length)}
-          value={schema.name}
-          onChange={(e) => st().commit((d) => void (d.name = e.target.value), 'schema-name')}
-          spellCheck={false}
-          aria-label="Schema name"
-        />
-        <LocalBadge />
-        <div className="tb-group tb-file">
-          <button className="tb-btn" title="Open a .sql file" onClick={() => void openFile()}>
-            <FileUp size={16} />
-          </button>
-          {exportMenu}
-        </div>
-        <div className="tb-group">
-          <button className="tb-btn" title="Undo" disabled={!canUndo} onClick={() => st().undo()}>
-            <Undo2 size={16} />
-          </button>
-          <button className="tb-btn" title="Redo" disabled={!canRedo} onClick={() => st().redo()}>
-            <Redo2 size={16} />
-          </button>
-        </div>
-        <span className="grow" />
-        <div className="tb-group">
-          <button className="tb-btn" title="Search tables and commands" onClick={onPalette}>
-            <Search size={16} />
-          </button>
-          <button className="tb-btn primary" title="Copy a link that contains the whole schema" onClick={share}>
-            <Link2 size={16} />
-          </button>
-        </div>
-      </header>
-    );
-
   return (
     <header className="topbar">
       <Brand />
@@ -205,7 +170,7 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
       />
       <div className="tb-group tb-file">
         <button
-          className="tb-btn"
+          className="tb-btn tb-file-wide"
           title="Open a .sql file"
           onClick={() => void openFile()}
         >
