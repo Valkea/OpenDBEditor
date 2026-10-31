@@ -8,12 +8,12 @@ as an atlas of domains, a precise blueprint, or a constellation to explore.
 [![Open the app](https://img.shields.io/badge/open%20the%20app-valkea.github.io%2FAsterion-7c8cff?style=for-the-badge)](https://valkea.github.io/Asterion/)
 
 [![Deploy](https://github.com/valkea/Asterion/actions/workflows/pages.yml/badge.svg)](https://github.com/valkea/Asterion/actions/workflows/pages.yml)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-DDL-336791?logo=postgresql&logoColor=white)
-![No backend](https://img.shields.io/badge/backend-none-2ea44f)
-![Works offline](https://img.shields.io/badge/works-offline-2ea44f)
-![No tracking](https://img.shields.io/badge/tracking-none-2ea44f)
-![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?logo=typescript&logoColor=white)
-![React 19](https://img.shields.io/badge/React-19-149eca?logo=react&logoColor=white)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-DDL-336791?logo=postgresql&logoColor=white)](#more-features)
+[![No backend](https://img.shields.io/badge/backend-none-2ea44f)](#why-asterion)
+[![Works offline](https://img.shields.io/badge/works-offline-2ea44f)](#why-asterion)
+[![No tracking](https://img.shields.io/badge/tracking-none-2ea44f)](#why-asterion)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?logo=typescript&logoColor=white)](#develop)
+[![React 19](https://img.shields.io/badge/React-19-149eca?logo=react&logoColor=white)](#develop)
 
 <img src="public/medias/atlas-keys.png" alt="The Atlas view: three groups of tables drawn as tinted islands, linked by their foreign keys" width="100%">
 
