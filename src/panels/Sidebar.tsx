@@ -524,7 +524,11 @@ function PathsTab() {
   const p = useStore((s) => s.path);
   const sel = useStore((s) => s.selection);
   const res = usePath();
-  const setPath = (next: { a?: string; b?: string }) => useStore.getState().set({ path: next });
+  // a new pair turns portals off, so the path is drawn as lines you can follow (swapping keeps them as they are)
+  const setPath = (next: { a?: string; b?: string }) => {
+    const fresh = !!next.a && !!next.b && [next.a, next.b].sort().join() !== [p.a, p.b].sort().join();
+    useStore.getState().set(fresh ? { path: next, portals: false } : { path: next });
+  };
   const sql = res?.rels && p.a ? joinSql(schema, p.a, res.rels) : '';
   const name = (id?: string) => schema.tables.find((t) => t.id === id)?.name;
 
