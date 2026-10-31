@@ -41,14 +41,15 @@ export function usePath() {
   }, [schema, a, b]);
 }
 
-/** Tables visible under the focus lens (null = lens off). */
-export function useLens() {
+/** Tables visible under the focus lens, centred on the hovered table or else the selected one (null = lens off). */
+export function useLens(hover: string | null) {
   const schema = useStore((s) => s.schema);
   const focus = useStore((s) => s.focus);
   const sel = useStore((s) => s.selection);
+  const center = hover ?? (sel?.kind === 'table' ? sel.id : null);
   return useMemo(() => {
-    if (!focus.enabled || sel?.kind !== 'table') return null;
-    const dist = hopDistances(schema, sel.id);
+    if (!focus.enabled || !center) return null;
+    const dist = hopDistances(schema, center);
     return new Set([...dist].filter(([, d]) => d <= focus.hops).map(([id]) => id));
-  }, [schema, focus, sel]);
+  }, [schema, focus, center]);
 }

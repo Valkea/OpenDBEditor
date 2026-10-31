@@ -4,6 +4,7 @@
   --mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, Menlo, monospace;
   --radius: 10px;
   --ease: cubic-bezier(.2, .8, .2, 1);
+  --fade: .14s ease-out; /* every hover / lens fade shares it, so they land together */
 
   --bg: #0a0c11;
   --canvas-bg: #0c0f15;
@@ -464,7 +465,7 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 /* table card — heights MUST match layout/geometry.ts */
 .tcard {
   position: relative; border-radius: 12px; background: var(--card); box-shadow: 0 0 0 1px var(--line-strong), var(--card-shadow);
-  transition: box-shadow .2s var(--ease), opacity .3s var(--ease);
+  transition: box-shadow .2s var(--ease), opacity var(--fade);
 }
 .tcard.is-selected { box-shadow: 0 0 0 2px var(--card-accent), 0 0 0 6px color-mix(in srgb, var(--card-accent) 22%, transparent), var(--card-shadow); }
 .tcard.is-faded { opacity: .13; }
@@ -536,7 +537,7 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 /* regions */
 .region {
   border-radius: 26px; background: color-mix(in srgb, var(--region) 6%, transparent);
-  border: 1.5px solid color-mix(in srgb, var(--region) 28%, transparent); transition: opacity .3s, background .2s;
+  border: 1.5px solid color-mix(in srgb, var(--region) 28%, transparent); transition: opacity var(--fade), background .2s;
   position: relative;
 }
 .region::before {
@@ -560,7 +561,7 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 .region-ov { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 40px; text-align: center; pointer-events: none; }
 .region-ov-name { font-size: 96px; font-weight: 800; letter-spacing: -.01em; color: var(--region); line-height: 1; }
 .region-ov-meta { font-size: 44px; color: var(--text-dim); }
-.bundle { transition: opacity .2s; }
+.bundle { transition: opacity var(--fade); }
 .bundle-hit { stroke: transparent; fill: none; }
 .bundle-arrow { fill: var(--rel, var(--edge)); opacity: .6; stroke: var(--rel, var(--edge)); stroke-width: 1; stroke-linejoin: round; vector-effect: non-scaling-stroke; pointer-events: none; }
 .bundle.is-lit .bundle-arrow { opacity: .95; }
@@ -574,13 +575,13 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 
 /* edges */
 .rel .rel-line, .arc .arc-line { vector-effect: non-scaling-stroke; }
-.rel .rel-line { stroke: var(--rel, var(--edge)); stroke-width: 1.5; opacity: .62; fill: none; transition: opacity .25s, stroke-width .2s; }
+.rel .rel-line { stroke: var(--rel, var(--edge)); stroke-width: 1.5; opacity: .62; fill: none; transition: opacity var(--fade), stroke-width .2s; }
 .rel .rel-glyph { stroke: var(--rel, var(--edge)); stroke-width: 1.5; fill: none; opacity: .8; }
 .rel .rel-hollow { fill: var(--canvas-bg); }
 .rel.is-lit .rel-line, .rel.is-selected .rel-line { opacity: 1; stroke-width: 2.4; }
 .rel.is-selected .rel-line { stroke: var(--accent); }
 .rel.is-faded { opacity: .06; }
-.rel { transition: opacity .2s; }
+.rel { transition: opacity var(--fade); }
 .rel.is-dim { opacity: .16; }
 .rel.is-hover .rel-line { opacity: 1; stroke-width: 3; }
 .rel.is-hover .rel-glyph { opacity: 1; stroke-width: 2; }
@@ -603,7 +604,7 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 .note {
   width: 100%; height: 100%; background: var(--note); color: #23252b; border-radius: 4px 4px 14px 4px; padding: 12px 14px;
   box-shadow: 0 1px 0 rgba(255, 255, 255, .5) inset, 0 14px 30px -14px rgba(0, 0, 0, .45); font-size: 13px; line-height: 1.45;
-  overflow: hidden; position: relative; transition: opacity .3s;
+  overflow: hidden; position: relative; transition: opacity var(--fade);
 }
 .note::after { content: ''; position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; background: linear-gradient(135deg, transparent 50%, rgba(0, 0, 0, .1) 50%); border-radius: 0 0 14px 0; }
 .note.is-selected { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -644,7 +645,7 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 .view-constellation { --canvas-bg: #07080d; }
 :root[data-theme='light'] .view-constellation { --canvas-bg: #f4f4f8; }
 .view-constellation .canvas, .view-constellation { background: radial-gradient(1200px 800px at 50% 40%, color-mix(in srgb, var(--accent) 8%, var(--canvas-bg)), var(--canvas-bg)); }
-.star { position: relative; border-radius: 50%; cursor: pointer; transition: opacity .35s var(--ease); }
+.star { position: relative; border-radius: 50%; cursor: pointer; transition: opacity var(--fade); }
 .star-core {
   position: absolute; inset: 0; border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #fff 0%, color-mix(in srgb, var(--star) 70%, white) 22%, var(--star) 55%, color-mix(in srgb, var(--star) 55%, black) 100%);
@@ -669,7 +670,7 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 }
 .star-label small { color: var(--text-faint); font-size: 10px; }
 .star.is-focus .star-label { font-size: 15px; font-weight: 700; }
-.arc .arc-line { stroke: var(--rel, var(--edge)); stroke-width: 1.3; opacity: .32; fill: none; transition: opacity .3s; }
+.arc .arc-line { stroke: var(--rel, var(--edge)); stroke-width: 1.3; opacity: .32; fill: none; transition: opacity var(--fade); }
 .arc.is-lit .arc-line { opacity: .95; stroke-width: 2; }
 .arc.is-faded .arc-line { opacity: .05; }
 .arc.is-path .arc-line { stroke: var(--accent); opacity: 1; stroke-width: 3; }

@@ -156,12 +156,12 @@ export function CanvasToolbar({ moveLocked, onMoveLocked, snap, onSnap }: { move
       )}
       <div className="ct-group" aria-label="View tools">
         <div className="split">
-          <button className={`tb-btn ${focus.enabled ? 'is-on' : ''}`} title="Focus lens (F): fade tables beyond N hops of the selection" onClick={() => st().set({ focus: { ...focus, enabled: !focus.enabled } })}>
+          <button className={`tb-btn ${focus.enabled ? 'is-on' : ''}`} title="Focus lens (F): fade tables beyond N hops of the hovered or selected table" onClick={() => st().set({ focus: { ...focus, enabled: !focus.enabled } })}>
             <Focus size={15} />
             <span className="tb-label">Lens</span>
           </button>
           {focus.enabled && (
-            <button className="tb-btn tb-mini" title={`Lens reach: ${focus.hops} hop${focus.hops > 1 ? 's' : ''} (click for ${(focus.hops % 3) + 1})`} onClick={() => st().set({ focus: { ...focus, hops: (focus.hops % 3) + 1 } })}>
+            <button className="tb-btn tb-mini" title={`Lens reach: ${focus.hops} hop${focus.hops > 1 ? 's' : ''} (click for ${(focus.hops % 5) + 1})`} onClick={() => st().set({ focus: { ...focus, hops: (focus.hops % 5) + 1 } })}>
               {focus.hops}
             </button>
           )}

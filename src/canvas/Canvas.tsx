@@ -168,7 +168,6 @@ export function Canvas() {
   const issues = useIssues();
   const diff = useDiff();
   const path = usePath();
-  const lens = useLens();
   const rf = useReactFlow();
   const flowStore = useStoreApi();
   if (import.meta.env.DEV) (window as unknown as { __rf: typeof flowStore }).__rf = flowStore;
@@ -178,6 +177,19 @@ export function Canvas() {
   const hover = exporting ? null : liveHover;
   const hoverEdge = exporting ? null : liveHoverEdge;
   const hoverRegion = exporting ? null : liveHoverRegion;
+  // The lens jumps to a hovered table at once, but holds on to the last one for a moment
+  // while the pointer crosses the gap to the next, so it doesn't flash back in between.
+  const [heldHover, setHeldHover] = useState<string | null>(null);
+  useEffect(() => {
+    if (hover) return setHeldHover(hover);
+    const t = setTimeout(() => setHeldHover(null), 350);
+    return () => clearTimeout(t);
+  }, [hover]);
+  const lensHover = hover ?? heldHover;
+  const lens = useLens(lensHover);
+  // with the lens on, the hover glow waits for the same settled table, so both change in one go
+  const lensOn = useStore((s) => s.focus.enabled);
+  const focusHover = lensOn ? lensHover : hover;
   const [measured, setMeasured] = useState<Map<string, { width: number; height: number }>>(new Map());
 
   // ---- constellation positions ----
@@ -249,7 +261,7 @@ export function Canvas() {
   const highlight = useMemo(() => {
     // tables "lit" by hover / selection / path
     const lit = new Set<string>();
-    const focusId = hover ?? (selection?.kind === 'table' ? selection.id : null);
+    const focusId = focusHover ?? (selection?.kind === 'table' ? selection.id : null);
     if (focusId) {
       lit.add(focusId);
       for (const r of schema.relations) {
@@ -258,7 +270,7 @@ export function Canvas() {
       }
     }
     return { lit, focusId };
-  }, [hover, selection, schema.relations]);
+  }, [focusHover, selection, schema.relations]);
 
   const nodes = useMemo<Node[]>(() => {
     const byGroup = new Map(schema.groups.map((g) => [g.id, g]));
@@ -284,7 +296,7 @@ export function Canvas() {
             table: t,
             r,
             color: t.color ?? g?.color ?? '#a5b4fc',
-            faded: isFaded(t.id) || (!!highlight.focusId && (!orbit || !!hover) && !highlight.lit.has(t.id)),
+            faded: isFaded(t.id) || (!lens && !!highlight.focusId && (!orbit || !!hover) && !highlight.lit.has(t.id)),
             lit: highlight.lit.has(t.id) && !!highlight.focusId,
             focus: t.id === starFocus,
             ring: dist?.get(t.id),
@@ -423,7 +435,7 @@ export function Canvas() {
           sourceHandle: 'c',
           targetHandle: 'c',
           type: 'arc',
-          data: { lit, faded: (path?.rels ? !onPath : isFaded(r.from.table, r.to.table)) || (!!highlight.focusId && (!starFocus || !!hover) && !lit), color: g?.color, path: onPath },
+          data: { lit, faded: (path?.rels ? !onPath : isFaded(r.from.table, r.to.table)) || (!lens && !!highlight.focusId && (!starFocus || !!hover) && !lit), color: g?.color, path: onPath },
           selected: selection?.kind === 'relation' && selection.id === r.id,
         });
       }
@@ -487,7 +499,7 @@ export function Canvas() {
           childUnique: fc.unique || (fc.pk && f.columns.filter((c) => c.pk).length === 1),
           childNullable: r.from.columns.some((id) => f.columns.find((c) => c.id === id)?.nullable),
           faded: path?.rels ? !onPath : isFaded(f.id, t.id),
-          dim: focused && !lit && !path?.rels,
+          dim: focused && !lit && !path?.rels && !(lens?.has(f.id) && lens.has(t.id)),
           lit: lit && !path?.rels,
           hover: isHover,
           points: route?.points,
