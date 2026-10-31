@@ -1,5 +1,8 @@
 import { useReactFlow } from '@xyflow/react';
 import {
+  Code2,
+  Moon,
+  Sun,
   ArrowLeftRight,
   Boxes,
   ChevronDown,
@@ -33,8 +36,10 @@ import { newGroupColor, type SidebarTab, useStore } from '../store/store';
 import { copyText, download, pickFile, slug } from '../util/files';
 import { CodeEditor } from './CodeEditor';
 import { IssueRow } from './IssueRow';
+import { useActions } from './useActions';
 import { useFly } from './useFly';
 
+/** Top: what is in the schema. Below the divider: questions about it (read-only). */
 const TABS: { id: SidebarTab; label: string; icon: typeof Boxes }[] = [
   { id: 'tables', label: 'Tables', icon: Boxes },
   { id: 'enums', label: 'Enums', icon: ListOrdered },
@@ -52,7 +57,8 @@ export function SidebarTabs({ onPick }: { onPick?: () => void }) {
   const errs = issues.filter((i) => i.severity !== 'info').length;
   return (
     <>
-      {TABS.map((t) => (
+      {TABS.map((t) => [
+        t.id === 'health' && <span key="sep" className="rail-sep" role="separator" />,
         <button
           key={t.id}
           className={`rail-btn ${tab === t.id ? 'is-active' : ''}`}
@@ -66,9 +72,30 @@ export function SidebarTabs({ onPick }: { onPick?: () => void }) {
           <t.icon size={18} />
           {t.id === 'health' && errs > 0 && <span className="rail-dot">{errs}</span>}
           {t.id === 'diff' && diff && diff.count > 0 && <span className="rail-dot rail-dot-ok">{diff.count}</span>}
-        </button>
-      ))}
+        </button>,
+      ])}
     </>
+  );
+}
+
+/** The live SQL pane: the schema as text, opening on the right. */
+function SqlButton() {
+  const sqlOpen = useStore((s) => s.sqlOpen);
+  return (
+    <button className={`rail-btn ${sqlOpen ? 'is-active' : ''}`} title="Live SQL pane (S)" aria-pressed={sqlOpen} onClick={() => useStore.getState().set({ sqlOpen: !sqlOpen })}>
+      <Code2 size={18} />
+    </button>
+  );
+}
+
+/** App setting, not a panel: parked at the foot of the rail. */
+function ThemeButton() {
+  const theme = useStore((s) => s.theme);
+  const { toggleTheme } = useActions();
+  return (
+    <button className="rail-btn rail-foot" title={theme === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'} onClick={toggleTheme}>
+      {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+    </button>
   );
 }
 
@@ -78,6 +105,9 @@ export function SidebarRail() {
   return (
     <nav className="rail">
       <SidebarTabs />
+      <span className="rail-sep" role="separator" />
+      <SqlButton />
+      <ThemeButton />
     </nav>
   );
 }

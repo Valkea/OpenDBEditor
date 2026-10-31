@@ -157,15 +157,8 @@ input, textarea, select { font: inherit; color: inherit; }
 /* secondary labels go first, so Open / Export / Share keep theirs longer */
 @media (max-width: 1600px) { .tb-label-2 { display: none; } }
 @media (max-width: 1280px) { .tb-label { display: none; } .schema-name { width: 140px; } }
-/* narrower still: canvas tools and misc buttons fold into the ⋯ menu */
-.tb-more { display: none; }
-.tb-more .menu-pop { max-height: calc(100dvh - 72px); overflow-y: auto; }
 .menu-glyph { width: 14px; text-align: center; font-family: var(--mono); font-size: 12px; }
-@media (max-width: 1100px) {
-  .tb-collapsible { display: none; }
-  .tb-more { display: block; }
-  .schema-name { width: 120px; }
-}
+@media (max-width: 1100px) { .schema-name { width: 120px; } }
 
 .menu { position: relative; }
 .menu-pop {
@@ -197,6 +190,9 @@ input, textarea, select { font: inherit; color: inherit; }
   background: var(--warn); color: #1a1205; font-size: 9.5px; font-weight: 700; display: grid; place-items: center;
 }
 .rail-dot-ok { background: var(--ok); color: #04150a; }
+/* between what is in the schema and the questions about it */
+.rail-foot { margin-top: auto; }
+.rail-sep { width: 22px; height: 1px; margin: 6px 0; background: var(--line-strong); flex: none; }
 
 .sidebar, .sqlpane {
   display: flex; flex-direction: column; background: var(--panel); border-right: 1px solid var(--line);
@@ -410,10 +406,24 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 .react-flow__controls-button svg { fill: currentColor; }
 .react-flow__controls-button.is-on { color: var(--accent); }
 /* the move lock: first in the stack, filled while locked */
-.react-flow__controls-button.move-lock,
-.react-flow__controls-button.snap-grid { order: -1; }
-.react-flow__controls-button.move-lock.is-locked { color: var(--accent-ink); background: var(--accent); }
-.react-flow__controls-button.move-lock.is-locked:hover { background: color-mix(in srgb, var(--accent) 85%, white); }
+/* view-dependent tools, top-left: layout cluster + view tools cluster */
+.canvas-tools { display: flex; align-items: flex-start; gap: 8px; margin: 14px; }
+.ct-group { display: flex; align-items: center; gap: 2px; padding: 3px; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 10px; backdrop-filter: blur(8px); }
+.ct-group .tb-btn { height: 30px; }
+.tb-btn.move-lock.is-locked { color: var(--accent-ink); background: var(--accent); }
+.tb-btn.move-lock.is-locked:hover { background: color-mix(in srgb, var(--accent) 85%, white); color: var(--accent-ink); }
+.ct-pop { left: 0; right: auto; min-width: 0; width: max-content; display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+.ct-row { display: flex; align-items: center; gap: 12px; }
+.ct-key { width: 64px; font-size: 12px; color: var(--text-faint); }
+.ct-choice { padding: 2px; }
+.menu-pop .ct-choice button { width: auto; padding: 5px 10px; font-size: 12px; gap: 5px; border-radius: 7px; }
+.ct-choice.is-disabled { opacity: .45; }
+.ct-note { margin: -4px 0 0 76px; font-size: 11px; color: var(--text-faint); }
+.menu-pop button.ct-run { width: auto; justify-content: center; margin-top: 4px; padding: 7px 10px; background: var(--accent); color: var(--accent-ink); }
+.menu-pop button.ct-run:hover { background: color-mix(in srgb, var(--accent) 88%, white); }
+.menu-pop button.ct-run small { margin-left: 6px; color: inherit; opacity: .7; }
+@media (max-width: 1280px) { .canvas-tools .tb-label { display: inline; } }
+@media (max-width: 1000px) { .canvas-tools .tb-label { display: none; } }
 .react-flow__controls { display: flex; flex-direction: column; }
 .react-flow__controls.mini-zoom { flex-direction: row; border-radius: 8px; z-index: 6; }
 .react-flow__controls.mini-zoom .react-flow__controls-button { width: 24px; height: 24px; padding: 5px; border-bottom: 0; }
@@ -691,6 +701,8 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 .welcome-card p { margin: 0 0 26px; color: var(--text-dim); font-size: 14.5px; line-height: 1.6; max-width: 520px; }
 .welcome-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .local { position: relative; }
+.local-right { margin: 0 8px 0 4px; }
+.local-right .local-pop { left: auto; right: 0; }
 .local-pop {
   position: absolute; top: calc(100% + 8px); left: 0; z-index: 50; width: 420px; max-width: calc(100vw - 24px); padding: 14px;
   background: var(--panel-solid); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: 0 12px 32px rgba(0, 0, 0, .3);

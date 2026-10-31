@@ -3,28 +3,19 @@ import {
   AlignCenterVertical,
   AlignStartHorizontal,
   AlignStartVertical,
-  Boxes,
   Code2,
   Download,
   FileUp,
-  Focus,
   Image,
-  LayoutGrid,
   Link2,
-  Loader2,
   Map as MapIcon,
-  Moon,
-  MoreHorizontal,
   Orbit,
   Redo2,
   Ruler,
   Search,
   ShieldCheck,
-  Sun,
   Undo2,
-  Waypoints,
   WifiOff,
-  Workflow,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { ViewMode } from '../model/types';
@@ -53,7 +44,7 @@ function Menu({ label, icon, children, className = '' }: { label: string; icon: 
   }, [open]);
   return (
     <div className={`menu ${className}`} ref={ref}>
-      <button className={`tb-btn ${open ? 'is-on' : ''}`} onClick={() => setOpen(!open)}>
+      <button className={`tb-btn ${open ? 'is-on' : ''}`} aria-expanded={open} onClick={() => setOpen(!open)}>
         {icon}
         {label && <span className="tb-label">{label}</span>}
       </button>
@@ -78,7 +69,7 @@ function useOnline() {
 }
 
 /** Always-visible reminder that the schema never leaves this device; click for how it works. */
-function LocalBadge() {
+function LocalBadge({ align = 'left' }: { align?: 'left' | 'right' }) {
   const online = useOnline();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -98,7 +89,7 @@ function LocalBadge() {
     download(`${slug(schema.name)}.sql`, generateSql(schema, { embedLayout: true }), 'application/sql');
   };
   return (
-    <div className="local" ref={ref}>
+    <div className={`local ${align === 'right' ? 'local-right' : ''}`} ref={ref}>
       <button className={`local-badge ${online ? '' : 'is-offline'} ${open ? 'is-open' : ''}`} aria-expanded={open} title="Where your data lives" onClick={() => setOpen(!open)}>
         {online ? <ShieldCheck size={13} /> : <WifiOff size={13} />}
         <span className="tb-label">{online ? 'Local only' : 'Offline'}</span>
@@ -140,64 +131,9 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
   const view = schema.view ?? 'atlas';
   const canUndo = useStore((s) => s.past.length > 0);
   const canRedo = useStore((s) => s.future.length > 0);
-  const sqlOpen = useStore((s) => s.sqlOpen);
-  const theme = useStore((s) => s.theme);
-  const focus = useStore((s) => s.focus);
-  const portals = useStore((s) => s.portals);
-  const busy = useStore((s) => s.layoutBusy);
-  const direction = useStore((s) => s.direction);
-  const arrangeMode = useStore((s) => s.arrangeMode);
-  const flowCompact = useStore((s) => s.flowCompact);
-  // arranging by group tries several orientations and keeps the cleanest, so the direction has no say
-  const directionIgnored = arrangeMode === 'groups' && schema.groups.length > 0;
   const st = useStore.getState;
   const phone = useIsPhone();
-  const { share, openFile, exportSql, exportImage, toggleTheme } = useActions();
-
-  /** ⋯ menu on a narrow desktop window: the tools that no longer fit in the bar. (On a phone they live in the side bar.) */
-  const moreMenu = (
-    <Menu label="" icon={<MoreHorizontal size={18} />} className="tb-more">
-      {(close) => {
-        const run = (fn: () => unknown) => () => {
-          close();
-          void fn();
-        };
-        return (
-          <>
-            {view !== 'constellation' && (
-              <>
-                <div className="menu-sep">Layout</div>
-                <button disabled={busy} onClick={run(() => st().runAutoLayout())}><LayoutGrid size={14} /> Arrange</button>
-                <button onClick={() => st().set({ arrangeMode: arrangeMode === 'groups' ? 'flow' : 'groups' })}>
-                  {arrangeMode === 'groups' ? <Boxes size={14} /> : <Workflow size={14} />} Arrange by {arrangeMode === 'groups' ? 'group' : 'dependency'} <small>switch</small>
-                </button>
-                {!directionIgnored && (
-                  <button onClick={() => st().set({ direction: direction === 'RIGHT' ? 'DOWN' : 'RIGHT' })}>
-                    <span className="menu-glyph">{direction === 'RIGHT' ? '→' : '↓'}</span> Direction {direction === 'RIGHT' ? 'left → right' : 'top → bottom'} <small>switch</small>
-                  </button>
-                )}
-                {arrangeMode === 'flow' && (
-                  <button onClick={() => st().set({ flowCompact: !flowCompact })}>
-                    <FlowPackIcon compact={flowCompact} direction={direction} size={14} /> {flowCompact ? 'Compact columns' : 'Aligned columns'} <small>switch</small>
-                  </button>
-                )}
-              </>
-            )}
-            <div className="menu-sep">View</div>
-            <button onClick={run(() => st().set({ sqlOpen: !sqlOpen }))}><Code2 size={14} /> SQL pane {sqlOpen && <small>open</small>}</button>
-            <button onClick={run(() => st().set({ focus: { ...focus, enabled: !focus.enabled } }))}><Focus size={14} /> Focus lens {focus.enabled && <small>on</small>}</button>
-            {focus.enabled && (
-              <button onClick={() => st().set({ focus: { ...focus, hops: (focus.hops % 3) + 1 } })}>
-                <span className="menu-glyph">{focus.hops}</span> Lens reach {focus.hops} hop{focus.hops > 1 ? 's' : ''} <small>switch</small>
-              </button>
-            )}
-            {view === 'atlas' && <button onClick={run(() => st().set({ portals: !portals }))}><Waypoints size={14} /> Portals {portals && <small>on</small>}</button>}
-            <button onClick={run(toggleTheme)}>{theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />} {theme === 'dark' ? 'Light theme' : 'Dark theme'}</button>
-          </>
-        );
-      }}
-    </Menu>
-  );
+  const { share, openFile, exportSql, exportImage } = useActions();
 
   const exportMenu = (
     <Menu label={phone ? '' : 'Export'} icon={<Download size={15} />}>
@@ -265,7 +201,6 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
         spellCheck={false}
         aria-label="Schema name"
       />
-      <LocalBadge />
       <div className="tb-group tb-file">
         <button
           className="tb-btn"
@@ -295,76 +230,11 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
         ))}
       </div>
       <span className="grow" />
-      <div className="tb-group tb-collapsible">
-        {view !== 'constellation' && (
-          <div className="split">
-            <button className="tb-btn" title="Auto-layout (L): clusters by group, minimises crossings, keeps locked tables" disabled={busy} onClick={() => void st().runAutoLayout()}>
-              {busy ? <Loader2 size={15} className="spin" /> : <LayoutGrid size={15} />}
-              <span className="tb-label tb-label-2">Arrange</span>
-            </button>
-            <button
-              className="tb-btn tb-mini"
-              title={arrangeMode === 'groups' ? 'Arrange by group: islands per domain, fewest crossings (click: by dependency)' : 'Arrange by dependency: referenced tables first, groups as bands (click: by group)'}
-              onClick={() => st().set({ arrangeMode: arrangeMode === 'groups' ? 'flow' : 'groups' })}
-            >
-              {arrangeMode === 'groups' ? <Boxes size={14} /> : <Workflow size={14} />}
-            </button>
-            {!directionIgnored && (
-              <button
-                className="tb-btn tb-mini"
-                title={`Direction: ${direction === 'RIGHT' ? 'left → right' : 'top → bottom'}`}
-                onClick={() => st().set({ direction: direction === 'RIGHT' ? 'DOWN' : 'RIGHT' })}>
-                {direction === 'RIGHT' ? '→' : '↓'}
-              </button>
-            )}
-            {arrangeMode === 'flow' && (
-              <button
-                className="tb-btn tb-mini"
-                title={flowCompact ? 'Compact columns: smaller drawing, more crossings (click: aligned)' : 'Aligned columns: cards line up with their links, fewer crossings (click: compact)'}
-                onClick={() => st().set({ flowCompact: !flowCompact })}
-              >
-                <FlowPackIcon compact={flowCompact} direction={direction} size={14} />
-              </button>
-            )}
-          </div>
-        )}
-        {view !== 'constellation' && <span className="tb-sep" />}
-        <div className="split">
-          <button className={`tb-btn ${focus.enabled ? 'is-on' : ''}`} title="Focus lens (F): fade tables beyond N hops of the selection" onClick={() => st().set({ focus: { ...focus, enabled: !focus.enabled } })}>
-            <Focus size={15} />
-            <span className="tb-label tb-label-2">Lens</span>
-          </button>
-          {focus.enabled && (
-            <button className="tb-btn tb-mini" title="Hops" onClick={() => st().set({ focus: { ...focus, hops: (focus.hops % 3) + 1 } })}>
-              {focus.hops}
-            </button>
-          )}
-        </div>
-        {view === 'atlas' && (
-          <button className={`tb-btn ${portals ? 'is-on' : ''}`} title="Portals: references to hub tables (≥5 inbound FKs) become chips instead of long lines" onClick={() => st().set({ portals: !portals })}>
-            <Waypoints size={15} />
-            <span className="tb-label tb-label-2">Portals</span>
-          </button>
-        )}
-      </div>
-      <div className="tb-group tb-collapsible">
-        <button className={`tb-btn ${sqlOpen ? 'is-on' : ''}`} title="Live SQL pane (S)" onClick={() => st().set({ sqlOpen: !sqlOpen })}>
-          <Code2 size={15} />
-          <span className="tb-label tb-label-2">SQL</span>
-        </button>
-        <button
-          className="tb-btn"
-          title="Toggle theme"
-          onClick={toggleTheme}
-        >
-          {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
-        </button>
-      </div>
-      {moreMenu}
+      <button className="tb-btn" title="Command palette (⌘K)" onClick={onPalette}>
+        <Search size={15} />
+      </button>
       <div className="tb-group">
-        <button className="tb-btn" title="Command palette (⌘K)" onClick={onPalette}>
-          <Search size={15} />
-        </button>
+        <LocalBadge align="right" />
         <button className="tb-btn primary" title="Copy a link that contains the whole schema: whoever opens it gets the schema, no server involved. Bookmark the page to save your work." onClick={share}>
           <Link2 size={15} />
           <span className="tb-label">Share</span>

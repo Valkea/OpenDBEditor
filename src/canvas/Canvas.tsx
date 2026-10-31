@@ -25,7 +25,7 @@ import { uid } from '../model/ids';
 import type { Schema } from '../model/types';
 import { canonicalType, isSerial } from '../sql/pg';
 import { useDiff, useHidden, useIssues, useLens, usePath } from '../store/derived';
-import { Lock, LockOpen, Magnet, Map as MapIcon, X } from 'lucide-react';
+import { Lock, Map as MapIcon, X } from 'lucide-react';
 import { useStore } from '../store/store';
 import { useIsPhone } from '../util/phone';
 import { ArcEdge, BundleEdge, NoteLinkEdge, RelationEdge } from './edges/RelationEdge';
@@ -33,6 +33,7 @@ import { NoteNode } from './nodes/NoteNode';
 import { RegionNode } from './nodes/RegionNode';
 import { RingsNode, StarNode } from './nodes/StarNode';
 import { TableNode } from './nodes/TableNode';
+import { CanvasToolbar } from './CanvasToolbar';
 
 const nodeTypes = { table: TableNode, region: RegionNode, note: NoteNode, star: StarNode, rings: RingsNode };
 const edgeTypes = { relation: RelationEdge, arc: ArcEdge, notelink: NoteLinkEdge, bundle: BundleEdge };
@@ -147,10 +148,10 @@ export function Canvas() {
       /* ignore */
     }
   };
-  // tool buttons top-left, the minimap bottom-left with its zoom pair in its corner
+  // view-dependent tools top-left, the minimap bottom-left with the camera buttons in its corner
   const mini = phone ? { w: 120, h: 90 } : { w: 200, h: 150 };
   const margin = phone ? 8 : 14;
-  const MINI_ZOOM_W = 50; // two 24px buttons + border
+  const MINI_ZOOM_W = 101; // four 24px buttons + borders
   const MINI_ZOOM_H = 26;
   const zoomDetail = useFlowStore(detailSelector);
   const detail: Detail = view === 'blueprint' ? 'full' : zoomDetail;
@@ -674,32 +675,7 @@ export function Canvas() {
       >
         <Background variant={bg} gap={view === 'blueprint' ? 24 : 22} size={view === 'blueprint' ? 1 : 1.3} className="bg" />
         {view === 'blueprint' && <Background id="major" variant={BackgroundVariant.Lines} gap={120} className="bg-major" />}
-        <Controls showZoom={false} showInteractive={false} position="top-left" className="controls" style={{ margin }}>
-          {view !== 'constellation' && (
-            <ControlButton
-              onClick={() => setMoveLocked(!moveLocked)}
-              title={moveLocked ? 'Moving is locked: click to move tables and notes' : 'Moving is unlocked: click to lock tables and notes in place'}
-              aria-label={moveLocked ? 'Unlock moving' : 'Lock moving'}
-              className={`move-lock ${moveLocked ? 'is-locked' : ''}`}
-            >
-              {moveLocked ? <Lock size={14} /> : <LockOpen size={14} />}
-            </ControlButton>
-          )}
-          {view !== 'constellation' && (
-            <ControlButton
-              onClick={toggleSnap}
-              title={snap ? 'Snapping to the grid: click to place tables, groups and notes freely' : 'Snap to grid: click so tables, groups and notes line up on the grid as you drag them'}
-              aria-label={snap ? 'Turn off snap to grid' : 'Snap to grid'}
-              aria-pressed={snap}
-              className={`snap-grid ${snap ? 'is-on' : ''}`}
-            >
-              <Magnet size={14} />
-            </ControlButton>
-          )}
-          <ControlButton onClick={toggleMini} title={miniOpen ? 'Hide the minimap' : 'Show the minimap'} aria-label={miniOpen ? 'Hide the minimap' : 'Show the minimap'} className={miniOpen ? 'is-on' : ''}>
-            <MapIcon size={14} />
-          </ControlButton>
-        </Controls>
+        <CanvasToolbar moveLocked={moveLocked} onMoveLocked={setMoveLocked} snap={snap} onSnap={toggleSnap} phone={phone} />
         {miniOpen && (
           <MiniMap
             position="bottom-left"
@@ -716,21 +692,23 @@ export function Canvas() {
             maskColor="var(--minimap-mask)"
           />
         )}
-        {miniOpen && (
-          // zoom +/- tucked into the minimap's top-right corner
-          <Controls
-            orientation="horizontal"
-            showFitView={false}
-            showInteractive={false}
-            position="bottom-left"
-            className="controls mini-zoom"
-            style={{
-              margin: 0,
-              marginLeft: margin + mini.w - MINI_ZOOM_W - 6,
-              marginBottom: margin + mini.h - MINI_ZOOM_H - 6,
-            }}
-          />
-        )}
+        {/* camera: zoom, fit and the minimap toggle, tucked into the minimap's top-right corner while it is shown */}
+        <Controls
+          orientation="horizontal"
+          showInteractive={false}
+          fitViewOptions={{ padding: 0.15, maxZoom: 1, duration: 300 }}
+          position="bottom-left"
+          className="controls mini-zoom"
+          style={
+            miniOpen
+              ? { margin: 0, marginLeft: margin + mini.w - MINI_ZOOM_W - 6, marginBottom: margin + mini.h - MINI_ZOOM_H - 6 }
+              : { margin }
+          }
+        >
+          <ControlButton onClick={toggleMini} title={miniOpen ? 'Hide the minimap' : 'Show the minimap'} aria-label={miniOpen ? 'Hide the minimap' : 'Show the minimap'} className={miniOpen ? 'is-on' : ''}>
+            <MapIcon size={14} />
+          </ControlButton>
+        </Controls>
       </ReactFlow>
       {showLockHint && (
         <div className="lock-hint" role="status">
