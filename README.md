@@ -24,7 +24,7 @@ as an atlas of domains, a precise blueprint, or a constellation to explore.
 ## Why Asterion
 
 - 🔒 **Nothing leaves your browser.** Your SQL is parsed, checked and drawn on your device. There is no
-  server, and the production build ships a Content-Security-Policy that forbids the page from
+  server, and the production build ships a [Content-Security-Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CSP) that forbids the page from
   contacting any other host, so the browser itself enforces it.
 - ✈️ **Works fully offline.** After the first visit the whole app is cached on your device: unplug and
   keep working, or install it as an app.
