@@ -125,7 +125,11 @@ input, textarea, select { font: inherit; color: inherit; }
   border-radius: 8px;
   padding: 5px 8px;
   font-weight: 550;
-  width: 220px;
+  /* as wide as the name, up to a cap; older browsers fall back on the size attribute */
+  field-sizing: content;
+  width: auto;
+  min-width: 60px;
+  max-width: 220px;
   color: var(--text-dim);
 }
 .schema-name:hover { border-color: var(--line); }
@@ -156,9 +160,9 @@ input, textarea, select { font: inherit; color: inherit; }
 .tb-sep { width: 1px; height: 18px; margin: 0 5px; background: var(--line); flex: none; }
 /* the view names go last: they are what tells the three views apart */
 @media (max-width: 980px) { .tb-label-view { display: none; } }
-@media (max-width: 1280px) { .tb-label { display: none; } .schema-name { width: 140px; } }
+@media (max-width: 1280px) { .tb-label { display: none; } .schema-name { max-width: 140px; } }
 .menu-glyph { width: 14px; text-align: center; font-family: var(--mono); font-size: 12px; }
-@media (max-width: 1100px) { .schema-name { width: 120px; } }
+@media (max-width: 1100px) { .schema-name { max-width: 120px; } }
 
 .menu { position: relative; }
 .menu-pop {

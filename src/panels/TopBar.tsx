@@ -159,6 +159,7 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
         <Brand />
         <input
           className="schema-name"
+          size={Math.max(4, schema.name.length)}
           value={schema.name}
           onChange={(e) => st().commit((d) => void (d.name = e.target.value), 'schema-name')}
           spellCheck={false}
@@ -196,6 +197,7 @@ export function TopBar({ onPalette }: { onPalette: () => void }) {
       <Brand />
       <input
         className="schema-name"
+          size={Math.max(4, schema.name.length)}
         value={schema.name}
         onChange={(e) => st().commit((d) => void (d.name = e.target.value), 'schema-name')}
         spellCheck={false}
