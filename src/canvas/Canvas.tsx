@@ -87,7 +87,10 @@ function useAnimatedPositions(target: Map<string, Pos> | null) {
 
 export function Canvas() {
   const schema = useStore((s) => s.schema);
-  const selection = useStore((s) => s.selection);
+  const exporting = useStore((s) => s.exporting);
+  const liveSelection = useStore((s) => s.selection);
+  // an image export shows the schema itself, not what is selected or hovered
+  const selection = exporting ? null : liveSelection;
   const theme = useStore((s) => s.theme);
   const starFocus = useStore((s) => s.starFocus);
   const view = schema.view ?? 'atlas';
@@ -153,10 +156,12 @@ export function Canvas() {
   const margin = phone ? 8 : 14;
   const MINI_ZOOM_W = 98; // four 24px buttons + borders, as rendered
   const zoomDetail = useFlowStore(detailSelector);
-  const detail: Detail = view === 'blueprint' ? 'full' : zoomDetail;
-  useEffect(() => useStore.setState({ viewDetail: detail }), [detail]);
+  const detail: Detail = view === 'blueprint' || exporting ? 'full' : zoomDetail;
+  useEffect(() => {
+    if (!exporting) useStore.setState({ viewDetail: detail });
+  }, [detail, exporting]);
   const farZoom = useFlowStore(overviewSelector);
-  const overview = view === 'atlas' && farZoom && schema.groups.length > 0;
+  const overview = view === 'atlas' && farZoom && !exporting && schema.groups.length > 0;
   const hidden = useHidden();
   const issues = useIssues();
   const diff = useDiff();
@@ -165,9 +170,12 @@ export function Canvas() {
   const rf = useReactFlow();
   const flowStore = useStoreApi();
   if (import.meta.env.DEV) (window as unknown as { __rf: typeof flowStore }).__rf = flowStore;
-  const [hover, setHover] = useState<string | null>(null);
-  const [hoverEdge, setHoverEdge] = useState<string | null>(null);
-  const [hoverRegion, setHoverRegion] = useState<string | null>(null);
+  const [liveHover, setHover] = useState<string | null>(null);
+  const [liveHoverEdge, setHoverEdge] = useState<string | null>(null);
+  const [liveHoverRegion, setHoverRegion] = useState<string | null>(null);
+  const hover = exporting ? null : liveHover;
+  const hoverEdge = exporting ? null : liveHoverEdge;
+  const hoverRegion = exporting ? null : liveHoverRegion;
   const [measured, setMeasured] = useState<Map<string, { width: number; height: number }>>(new Map());
 
   // ---- constellation positions ----
@@ -614,7 +622,7 @@ export function Canvas() {
   const bg = view === 'blueprint' ? BackgroundVariant.Lines : BackgroundVariant.Dots;
 
   return (
-    <div className={`canvas view-${view} detail-${detail}`} data-theme-canvas={theme}>
+    <div className={`canvas view-${view} detail-${detail}${exporting ? ' is-exporting' : ''}`} data-theme-canvas={theme}>
       <ReactFlow
         proOptions={{ hideAttribution: true }} // React Flow (MIT) is credited in the README
         nodes={shownNodes}

@@ -65,6 +65,8 @@ interface State {
   flowCompact: boolean;
   /** Detail level the canvas currently draws at (set by the canvas from the zoom). */
   viewDetail: Detail;
+  /** An image export is being captured: the canvas draws everything at full detail, with no selection or hover. */
+  exporting: boolean;
   toasts: Toast[];
   welcome: boolean;
   /** Bumped when the camera should frame the whole drawing. */
@@ -148,6 +150,7 @@ export const useStore = create<State>((set, get) => ({
   arrangeMode: 'groups',
   flowCompact: false,
   viewDetail: 'full',
+  exporting: false,
   toasts: [],
   welcome: false,
   fitRequest: 0,

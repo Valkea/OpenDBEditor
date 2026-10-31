@@ -1,21 +1,64 @@
-import { getNodesBounds, getViewportForBounds, useReactFlow } from '@xyflow/react';
+import { getNodesBounds, useReactFlow } from '@xyflow/react';
 import { encodeSchema, shareUrl } from '../share/codec';
 import { generateSql } from '../sql/generator';
 import { useStore } from '../store/store';
 import { copyText, download, pickFile, slug } from '../util/files';
 
+const frame = () => new Promise((r) => requestAnimationFrame(r));
+
+/** Longest side of the exported image, in pixels. */
+const MAX_SIDE = 4096;
+
+const SVG_PAINT = ['stroke', 'stroke-width', 'stroke-opacity', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'fill', 'fill-opacity', 'opacity', 'vector-effect'];
+
+/**
+ * html-to-image copies computed styles onto HTML elements but not onto the shapes inside an <svg>,
+ * so links styled from the stylesheet would come out unstroked (and circles black). Inline their paint
+ * for the capture; returns the undo.
+ */
+function inlineSvgPaint(root: HTMLElement) {
+  const saved: [Element, string | null][] = [];
+  root.querySelectorAll('svg *').forEach((n) => {
+    if (!(n instanceof SVGElement)) return;
+    const cs = getComputedStyle(n);
+    saved.push([n, n.getAttribute('style')]);
+    for (const p of SVG_PAINT) n.style.setProperty(p, cs.getPropertyValue(p));
+  });
+  return () => saved.forEach(([n, s]) => (s === null ? n.removeAttribute('style') : n.setAttribute('style', s)));
+}
+
 export async function exportPng(rf: ReturnType<typeof useReactFlow>, theme: string) {
   const { toPng } = await import('html-to-image');
-  const nodes = rf.getNodes();
-  if (!nodes.length) return;
-  const b = getNodesBounds(nodes);
-  const scale = 2;
-  const w = Math.min(12000, Math.round((b.width + 160) * scale));
-  const h = Math.min(12000, Math.round((b.height + 160) * scale));
-  const vp = getViewportForBounds(b, w, h, 0.05, 4, 0.04);
+  const canvas = document.querySelector('.canvas') as HTMLElement;
   const el = document.querySelector('.react-flow__viewport') as HTMLElement;
-  const bg = getComputedStyle(document.querySelector('.canvas') as HTMLElement).getPropertyValue('--canvas-bg').trim() || (theme === 'dark' ? '#0b0d12' : '#f7f7f5');
-  return toPng(el, { backgroundColor: bg, width: w, height: h, style: { width: `${w}px`, height: `${h}px`, transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})` } });
+  if (!canvas || !el || !rf.getNodes().length) return;
+  // draw everything at full detail (whatever the zoom), without selection or hover, then let the cards and links settle
+  useStore.setState({ exporting: true });
+  let restore = () => {};
+  try {
+    for (let i = 0; i < 4; i++) await frame();
+    const nodes = rf.getNodes().filter((n) => !n.hidden);
+    if (!nodes.length) return;
+    const b = getNodesBounds(nodes);
+    const pad = 48;
+    const w = Math.ceil(b.width + pad * 2);
+    const h = Math.ceil(b.height + pad * 2);
+    // 1:1 with the canvas at 100%, sharper for small schemas, scaled down so big ones stay a sensible size
+    const pixelRatio = Math.min(2, MAX_SIDE / Math.max(w, h));
+    restore = inlineSvgPaint(el);
+    const bg = getComputedStyle(canvas).getPropertyValue('--canvas-bg').trim() || (theme === 'dark' ? '#0b0d12' : '#f7f7f5');
+    return await toPng(el, {
+      backgroundColor: bg,
+      width: w,
+      height: h,
+      pixelRatio,
+      filter: (n) => !(n instanceof Element && n.classList.contains('react-flow__handle')),
+      style: { width: `${w}px`, height: `${h}px`, transform: `translate(${pad - b.x}px, ${pad - b.y}px) scale(1)` },
+    });
+  } finally {
+    restore();
+    useStore.setState({ exporting: false });
+  }
 }
 
 /** File, share and theme actions shared by the top bar and the rail. */

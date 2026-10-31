@@ -837,3 +837,20 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 
 @keyframes sheetUp { from { opacity: 0; transform: translateY(16px); } }
 @keyframes fadeIn { from { opacity: 0; } }
+
+/* image export: capture the settled state, not a transition */
+.canvas.is-exporting *, .canvas.is-exporting *::before, .canvas.is-exporting *::after { transition: none !important; animation: none !important; }
+.canvas.is-exporting .rel .rel-line { opacity: .9; }
+.canvas.is-exporting .rel .rel-glyph { opacity: 1; }
+/* shadows (even 1px rings) can rasterise as square boxes in the capture: draw the outline as a real border instead */
+.canvas.is-exporting .tcard { box-shadow: none; }
+.canvas.is-exporting .tcard::after {
+  content: ''; position: absolute; inset: -1px; border: 1px solid var(--line-strong); border-radius: 13px; pointer-events: none;
+}
+.canvas.is-exporting .tcard.diff-added::after { inset: -2px; border: 2px solid var(--ok); border-radius: 14px; }
+.canvas.is-exporting .tcard.diff-changed::after { inset: -2px; border: 2px solid var(--warn); border-radius: 14px; }
+.canvas.is-exporting .tcard-compact::after { inset: -2px; border: 2px solid color-mix(in srgb, var(--card-accent) 45%, transparent); border-radius: 18px; }
+.view-blueprint.is-exporting .tcard::after { inset: -1.5px; border: 1.5px solid var(--bp-ink); border-radius: 3.5px; }
+.canvas.is-exporting .tcard-bar, .canvas.is-exporting .sev-error, .canvas.is-exporting .star-core { box-shadow: none; }
+.canvas.is-exporting .note { box-shadow: none; }
+.canvas.is-exporting .note::before { content: ''; position: absolute; inset: 0; border: 1px solid rgba(0, 0, 0, .1); border-radius: inherit; pointer-events: none; }
