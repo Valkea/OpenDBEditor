@@ -11,7 +11,7 @@ CREATE TABLE countries (
   code  char(2) PRIMARY KEY,
   name  text NOT NULL UNIQUE
 );
-COMMENT ON TABLE countries IS 'ISO 3166-1 alpha-2. Referenced from five tables: a portal hub in the Atlas view.';
+COMMENT ON TABLE countries IS 'ISO 3166-1 alpha-2. Referenced from five tables: with Portals on in the Atlas view, it becomes a portal hub.';
 
 CREATE TABLE authors (
   id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
