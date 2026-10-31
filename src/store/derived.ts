@@ -41,15 +41,19 @@ export function usePath() {
   }, [schema, a, b]);
 }
 
+/** The constellation always looks through the lens: its rings already show distance, so only the reach is a choice there. */
+export const lensEnabled = (s: { focus: { enabled: boolean }; schema: { view?: string } }) => s.focus.enabled || s.schema.view === 'constellation';
+
 /** Tables visible under the focus lens, centred on the selected table or, with none, the hovered one (null = lens off). */
 export function useLens(hover: string | null) {
   const schema = useStore((s) => s.schema);
-  const focus = useStore((s) => s.focus);
+  const hops = useStore((s) => s.focus.hops);
+  const enabled = useStore(lensEnabled);
   const sel = useStore((s) => s.selection);
   const center = sel?.kind === 'table' ? sel.id : hover;
   return useMemo(() => {
-    if (!focus.enabled || !center) return null;
+    if (!enabled || !center) return null;
     const dist = hopDistances(schema, center);
-    return new Set([...dist].filter(([, d]) => d <= focus.hops).map(([id]) => id));
-  }, [schema, focus, center]);
+    return new Set([...dist].filter(([, d]) => d <= hops).map(([id]) => id));
+  }, [schema, enabled, hops, center]);
 }

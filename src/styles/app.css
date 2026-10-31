@@ -154,6 +154,7 @@ input, textarea, select { font: inherit; color: inherit; }
 .tb-btn:hover:not(:disabled) { background: var(--hover); color: var(--text); }
 .tb-btn:disabled { opacity: .35; cursor: default; }
 .tb-btn.is-on { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.tb-btn.is-static, .tb-btn.is-static:hover { cursor: default; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .tb-btn.primary { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .tb-btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, white); color: var(--accent-ink); }
 .tb-mini { padding: 0 7px; font-family: var(--mono); font-size: 12px; }

@@ -24,7 +24,7 @@ import { regionFrame, routeSchema } from '../layout/routing';
 import { uid } from '../model/ids';
 import type { Schema } from '../model/types';
 import { canonicalType, isSerial } from '../sql/pg';
-import { useDiff, useHidden, useIssues, useLens, usePath } from '../store/derived';
+import { lensEnabled, useDiff, useHidden, useIssues, useLens, usePath } from '../store/derived';
 import { Lock, Map as MapIcon, X } from 'lucide-react';
 import { useStore } from '../store/store';
 import { useIsPhone } from '../util/phone';
@@ -188,7 +188,7 @@ export function Canvas() {
   const lensHover = hover ?? heldHover;
   const lens = useLens(lensHover);
   // with the lens on, the hover glow waits for the same settled table, so both change in one go
-  const lensOn = useStore((s) => s.focus.enabled);
+  const lensOn = useStore(lensEnabled);
   const focusHover = lensOn ? lensHover : hover;
   const [measured, setMeasured] = useState<Map<string, { width: number; height: number }>>(new Map());
 
