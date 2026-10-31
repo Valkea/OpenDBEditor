@@ -827,7 +827,7 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
   .welcome-foot { display: none; }
 }
 /* Open folds into the Export menu, which becomes a File menu, below this width */
-.tb-file-narrow { display: none; }
+.tb-file-narrow, .menu-pop button.tb-file-narrow { display: none; } /* beat .menu-pop button's display: flex */
 @media (max-width: 520px) {
   .tb-file-wide { display: none; }
   .tb-file-narrow { display: revert; }
