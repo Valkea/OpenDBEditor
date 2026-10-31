@@ -37,10 +37,10 @@ as an atlas of domains, a precise blueprint, or a constellation to explore.
 > A bookmark only holds the version you bookmarked. Also keep a copy with **Export → SQL + layout**:
 > it's plain SQL that re-opens with your positions, groups and notes.
 
-## What sets it apart
+## Beyond the diagram
 
-Most online diagram tools stop at drawing the tables. Asterion also tidies, checks, explains and
-compares your schema.
+Asterion doesn't stop at drawing your tables: it also tidies, checks, explains and compares your
+schema, all inside your browser.
 
 ### 🧭 Arrange: a clean layout in one click
 
