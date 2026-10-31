@@ -211,15 +211,15 @@ function Shell() {
             <span>Drag a column dot onto another: foreign key</span>
             <span>⌘K: commands</span>
           </div>
+          <div className="toasts">
+            {toasts.map((t) => (
+              <div key={t.id} className={`toast toast-${t.tone}`}>
+                {t.text}
+              </div>
+            ))}
+          </div>
         </div>
         {sqlOpen && <SqlPane />}
-      </div>
-      <div className="toasts">
-        {toasts.map((t) => (
-          <div key={t.id} className={`toast toast-${t.tone}`}>
-            {t.text}
-          </div>
-        ))}
       </div>
       {drag && (
         <div className="dropzone">
