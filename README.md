@@ -1,45 +1,187 @@
+<div align="center">
+
 # Asterion
 
-A PostgreSQL schema designer that runs entirely in the browser.
+**See your schema.** A PostgreSQL schema designer that runs entirely in your browser:
+as an atlas of domains, a precise blueprint, or a constellation to explore.
 
-**Use it: <https://valkea.github.io/Asterion/>** (deployed from `main` on every push).
+[![Open the app](https://img.shields.io/badge/open%20the%20app-valkea.github.io%2FAsterion-7c8cff?style=for-the-badge)](https://valkea.github.io/Asterion/)
 
-- **Nothing leaves your browser.** SQL is parsed, analysed and drawn on your device. There is no
-  backend: the app is a set of static files, and the production build ships a Content-Security-Policy
-  that forbids the page from contacting any other host, so the browser itself enforces it.
-- **Works fully offline.** A service worker caches every file of the app (including the lazily
-  loaded layout engine and SQL editor) on first visit; after that it runs with no network at all,
-  and can be installed as an app.
-- **No account, no tracking.** No sign-up, no cookies, no analytics. The only thing stored locally
-  is your light/dark preference.
-- **The link is the file.** The whole schema — tables, enums, extensions, relationships, groups,
-  notes and positions — is compressed into the page URL's `#hash`, updated on every edit. Share the
-  link to share the schema; bookmark the page to save it, even offline. The part after `#` is never
-  sent to any server, not even the one hosting the app. A bookmark only holds the version you
-  bookmarked, so also keep a copy with **Export → SQL + layout**, which re-opens with positions,
-  groups and notes.
+[![Deploy](https://github.com/valkea/Asterion/actions/workflows/pages.yml/badge.svg)](https://github.com/valkea/Asterion/actions/workflows/pages.yml)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-DDL-336791?logo=postgresql&logoColor=white)
+![No backend](https://img.shields.io/badge/backend-none-2ea44f)
+![Works offline](https://img.shields.io/badge/works-offline-2ea44f)
+![No tracking](https://img.shields.io/badge/tracking-none-2ea44f)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?logo=typescript&logoColor=white)
+![React 19](https://img.shields.io/badge/React-19-149eca?logo=react&logoColor=white)
+
+<img src="public/medias/atlas.png" alt="The Atlas view: three groups of tables drawn as tinted islands, with the table list on the left" width="100%">
+
+</div>
+
+## Why Asterion
+
+- 🔒 **Nothing leaves your browser.** Your SQL is parsed, checked and drawn on your device. There is no
+  server, and the production build ships a Content-Security-Policy that forbids the page from
+  contacting any other host, so the browser itself enforces it.
+- ✈️ **Works fully offline.** After the first visit the whole app is cached on your device: unplug and
+  keep working, or install it as an app.
+- 🙈 **No account, no tracking.** No sign-up, no cookies, no analytics.
+- 🔗 **The link is the file.** The whole schema (tables, enums, extensions, relationships, groups,
+  notes and positions) is packed into the part of the URL after `#`, which browsers never send to
+  any server. Share the link to share the schema; bookmark it to save your work.
+
+> [!TIP]
+> A bookmark only holds the version you bookmarked. Also keep a copy with **Export → SQL + layout**:
+> it's plain SQL that re-opens with your positions, groups and notes.
+
+## What sets it apart
+
+Most online diagram tools stop at drawing the tables. Asterion also tidies, checks, explains and
+compares your schema.
+
+### 🧭 Arrange: a clean layout in one click
+
+Press <kbd>L</kbd>. Each group is laid out as an island and the islands are placed around each other.
+Asterion tries several strategies and keeps the one with the fewest crossing lines. Arrange **by
+group** (it picks the cleanest direction itself) or **by dependency** (left to right, or top to
+bottom). Lock a table or a group and it never moves; everything else is placed around it.
+**Suggest groups** finds clusters of closely linked tables and proposes them as groups.
+
+<img src="public/medias/arrange.png" alt="The Arrange options open over a schema laid out in three groups" width="100%">
+
+### 🩺 Health: problems found as you type
+
+Live checks over the whole schema, most with a one-click fix: foreign-key columns without an
+index, redundant indexes, foreign keys whose type doesn't match the column they point to, extension
+types used without the extension, `SET NULL` on a `NOT NULL` column, double-escaped comments,
+mixed-case names, unused enums… Click an issue to jump to it.
+
+<img src="public/medias/health.png" alt="The Health panel listing 11 foreign-key columns without an index and one type mismatch" width="100%">
+
+### 🔀 Join paths: from two tables to a ready-to-run query
+
+Pick two tables. The shortest chain of foreign keys between them lights up on the canvas, and you
+get the `SELECT … JOIN …` to copy.
+
+<img src="public/medias/join-paths.png" alt="The Join paths panel: from authors to customers through countries, with the route lit up and the generated SQL" width="100%">
+
+### 🆚 Compare: see what changed, get the migration
+
+Load an older version (a file, pasted SQL or a link). New and changed tables are marked on the
+canvas, every difference is listed, and you get the migration script (`BEGIN; … ALTER TABLE …`) to
+copy or download.
+
+<img src="public/medias/compare.png" alt="Compare: reviews marked NEW and books marked CHANGED on the canvas, with the list of differences and the migration script" width="100%">
 
 ## Three ways to look at a schema
 
-| View | What it is for |
+Switch views with <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd>, or the switcher at the top of the screen.
+
+### 🗺️ Atlas: the map of your domains
+
+Groups become tinted islands. Zoom out to see each table as a block with its name in large type;
+zoom in to see key columns, then every column with its type, default, check and comment.
+
+When a lookup table is referenced from everywhere, its lines cross the whole map. Turn on
+**Portals** and those references become small chips instead: the hub table gets a coloured mark,
+and every chip that leads to it has the same mark. Hover the mark to draw its lines, click a chip
+to fly there.
+
+<img src="public/medias/portals.png" alt="The Atlas view with Portals on: countries is a hub marked with 5, and hovering its mark draws dashed lines to the five tables that reference it" width="100%">
+
+### 📐 Blueprint: the precise diagram
+
+A classic entity-relationship diagram (ERD) with crow's-foot notation on drafting paper: every
+column, every key. Use it to print or export.
+
+<table>
+  <tr>
+    <td><img src="public/medias/blueprint.png" alt="The Blueprint view in the dark theme"></td>
+    <td><img src="public/medias/blueprint-light.png" alt="The Blueprint view in the light theme"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Dark theme</sub></td>
+    <td align="center"><sub>Light theme</sub></td>
+  </tr>
+</table>
+
+### ✨ Constellation: explore the connections
+
+Tables become stars, sized by their columns and links, and grouped together. Click a star to put it
+at the centre: every other table moves into an orbit based on how many foreign-key hops away it is.
+
+<img src="public/medias/constellation.png" alt="The Constellation view centred on books, with the other tables on rings one and two hops away" width="100%">
+
+Hover any other star to explore around it without moving anything: its links light up, each
+nearby star shows how many hops away it is, and everything beyond the lens reach fades.
+
+<img src="public/medias/constellation-hover.png" alt="The same view with customers hovered: its links to orders, reviews and countries light up, each showing 1 hop, books shows 2, and the other stars fade" width="100%">
+
+## More features
+
+<details open>
+<summary><b>Live SQL twin</b>: the SQL and the canvas stay in sync</summary>
+
+<br>
+
+Press <kbd>S</kbd> to open the SQL next to the canvas. Edit the PostgreSQL DDL (the `CREATE`
+statements) and the canvas follows; edit the canvas and the SQL is rewritten. Errors show up inline
+and pause syncing instead of breaking the drawing. Statements Asterion doesn't draw (views,
+functions, triggers…) are kept as you wrote them.
+
+<img src="public/medias/sql-twin.png" alt="The Atlas view with the live SQL pane open on the right" width="100%">
+
+</details>
+
+<details>
+<summary><b>Lens, Portals, notes and status</b></summary>
+
+<br>
+
+- **Lens** (<kbd>F</kbd>): fades every table more than N foreign-key hops away from the selected one.
+- **Portals** (off by default): turn busy lookup tables into hubs whose references are drawn as
+  chips. Pick how many incoming foreign keys make a hub, and set each table to *auto*, *always* or
+  *never*.
+- **Sticky notes** attached to tables, and a **status** per table (draft, deprecated).
+
+</details>
+
+<details>
+<summary><b>What PostgreSQL features are supported</b></summary>
+
+<br>
+
+- Tables, columns, primary and foreign keys with `ON DELETE` / `ON UPDATE` actions
+- Enums and extensions (ltree, pgvector, PostGIS, citext, pgcrypto, pg_trgm, …)
+- Indexes, including partial, GiST, GIN and HNSW
+- Unique and check constraints, identity and generated columns
+- Comments on tables and columns
+
+</details>
+
+<details>
+<summary><b>Import, export and keyboard shortcuts</b></summary>
+
+<br>
+
+**Import** a `.sql` file (open it or drop it anywhere on the page), or paste SQL.
+**Export** plain SQL, SQL with the layout saved in a comment at the end, or a PNG image.
+
+| Shortcut | Action |
 | --- | --- |
-| **Atlas** (1) | Groups become tinted regions ("islands"). Semantic zoom: far away each table is a block with its name in large type, mid-zoom shows only key columns, close-up shows every column with types, defaults, checks and comments. *Portals* turn references to hub tables into chips instead of long lines: each hub wears a coloured mark (◆ 12 ←) and every chip leading to it wears the same one. Hover a mark to see its lines, click a chip to fly through (a pill brings you back), click the hub's mark to visit its referrers one by one. Zoomed out, the marks stay on the blocks' edges. Each table can be set to portal auto, always or never. |
-| **Blueprint** (2) | Classic full-detail ERD with crow's-foot notation on drafting paper — the one to print or export. |
-| **Constellation** (3) | Tables as stars sized by columns and connections, pulled together by group. Click a star to put it at the centre with everything else in orbits by foreign-key distance; click the centre star (or double-click any star) to edit its table. |
+| <kbd>⌘K</kbd> | Command palette |
+| <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> | Atlas, Blueprint, Constellation |
+| <kbd>S</kbd> | Live SQL pane |
+| <kbd>L</kbd> | Arrange |
+| <kbd>F</kbd> | Focus lens |
+| <kbd>T</kbd> / <kbd>N</kbd> | New table / new note |
+| <kbd>⌘Z</kbd> / <kbd>⇧⌘Z</kbd> | Undo / redo |
+| <kbd>Esc</kbd> | Clear the selection |
+| Double-click the canvas | New table |
+| Drag a column's dot onto another column | New foreign key |
 
-## Features
-
-- **Live SQL twin** (`S`): edit PostgreSQL DDL and the canvas follows; edit the canvas and the SQL regenerates. Errors are shown inline and pause syncing instead of breaking the drawing. Statements it doesn't model (views, functions, triggers…) are kept verbatim.
-- **Arrange** (`L`): ELK-based auto-layout that lays out each group as an island, arranges the islands, tries several strategies and keeps the one with the fewest line crossings. **Locked** tables or groups never move; everything else is placed around them.
-- **Suggest groups**: Louvain community detection on the foreign-key graph.
-- **Health**: live checks with one-click fixes — FK columns without an index, redundant indexes, FK type mismatches, extension types used without the extension, `SET NULL` on `NOT NULL`, double-escaped comments, mixed-case identifiers, unused enums…
-- **Compare**: load an older version (file, pasted SQL or link), see added/changed tables on the canvas, and get a migration script.
-- **Join paths**: pick two tables, see the shortest FK chain light up and copy the `SELECT … JOIN …`.
-- **Focus lens** (`F`): fade everything more than N hops away from the selected table.
-- Enums, extensions (ltree, pgvector, PostGIS, citext, pgcrypto, pg_trgm, …), indexes (incl. partial / GiST / GIN / HNSW), unique & check constraints, identity and generated columns, comments, sticky notes attached to tables, table status (draft / deprecated).
-- Import by file, drag & drop or paste. Export plain SQL, SQL with the layout embedded in a trailing comment block (re-opens with positions, groups and notes), or a PNG.
-
-Shortcuts: `⌘K` command palette · `⌘Z` / `⇧⌘Z` undo/redo · double-click the canvas for a new table · drag a column dot onto another column to create a foreign key · `T` table · `N` note · `Esc` clear.
+</details>
 
 ## Develop
 
@@ -50,8 +192,23 @@ npm test           # parser, layout, lint, diff/migration tests
 npm run build      # static site in dist/
 ```
 
-Stack: React 19, React Flow (@xyflow/react), elkjs, d3-force, graphology, CodeMirror 6, zustand + immer, fflate.
+Every push to `main` runs the tests and the type-check, then deploys to GitHub Pages.
 
-`src/sql/` holds a hand-written, error-tolerant PostgreSQL DDL parser and the generator; `src/layout/`
-the layout engines; `src/analysis/` lint, diff/migration and join-path logic; `src/canvas/` the
-React Flow nodes and edges; `src/panels/` the UI around the canvas.
+<details>
+<summary><b>Stack and project layout</b></summary>
+
+<br>
+
+React 19, React Flow (`@xyflow/react`), elkjs, d3-force, graphology, CodeMirror 6, zustand + immer,
+fflate.
+
+| Folder | Contents |
+| --- | --- |
+| `src/sql/` | A hand-written, error-tolerant PostgreSQL DDL parser, and the SQL generator |
+| `src/layout/` | The layout engines (Arrange, constellation, line routing) |
+| `src/analysis/` | Health checks, compare/migration and join paths |
+| `src/canvas/` | The canvas, its tables and its lines |
+| `src/panels/` | The UI around the canvas |
+| `src/share/` | Packing the schema into the URL |
+
+</details>
