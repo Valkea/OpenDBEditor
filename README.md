@@ -2,6 +2,8 @@
 
 # Asterion
 
+*Every foreign key is a thread: follow it through the labyrinth of your tables.*
+
 **See your schema.** A PostgreSQL schema designer that runs entirely in your browser:
 as an atlas of domains, a precise blueprint, or a constellation to explore.
 
@@ -73,6 +75,14 @@ canvas, every difference is listed, and you get the migration script (`BEGIN; �
 copy or download.
 
 <img src="public/medias/compare.png" alt="Compare: reviews marked NEW and books marked CHANGED on the canvas, with the list of differences and the migration script" width="100%">
+
+### 🔎 Search: jump to any table
+
+Press <kbd>⌘K</kbd> (or the magnifier at the top) and start typing. Search matches table names and
+column names: type `country` and every table with a country column shows up. Pick one and the
+canvas flies straight to it. The same box also runs commands: new table, Arrange, switch view…
+
+<img src="public/medias/search.png" alt="The search box over the canvas: typing country lists publishers, customers and books, the tables that have a country column" width="100%">
 
 ## Three ways to look at a schema
 
@@ -172,7 +182,7 @@ functions, triggers…) are kept as you wrote them.
 
 | Shortcut | Action |
 | --- | --- |
-| <kbd>⌘K</kbd> | Command palette |
+| <kbd>⌘K</kbd> | Search tables and columns, run commands |
 | <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> | Atlas, Blueprint, Constellation |
 | <kbd>S</kbd> | Live SQL pane |
 | <kbd>L</kbd> | Arrange |
