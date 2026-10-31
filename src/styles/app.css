@@ -677,8 +677,8 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 .star.is-focus .star-label { font-size: 15px; font-weight: 700; }
 .arc .arc-line { stroke: var(--rel, var(--edge)); stroke-width: 1.3; opacity: .32; fill: none; transition: opacity var(--fade); }
 .arc.is-lit .arc-line { opacity: .95; stroke-width: 2; }
-/* under the lens: 1 hop .95, then a step dimmer and thinner per hop, never below the plain links */
-.arc.is-reach .arc-line { opacity: max(.4, calc(1.1 - var(--reach) * .15)); stroke-width: max(1.3px, calc(2.3px - var(--reach) * .3px)); }
+/* under the lens: 1 hop at full strength, then .2 dimmer per hop */
+.arc.is-reach .arc-line { opacity: calc(1.2 - var(--reach) * .2); stroke-width: 2; }
 .arc.is-faded .arc-line { opacity: .05; }
 .arc.is-path .arc-line { stroke: var(--accent); opacity: 1; stroke-width: 3; }
 .rings circle { fill: none; stroke: var(--text-faint); stroke-opacity: .45; stroke-width: 1.2; stroke-dasharray: 3 7; vector-effect: non-scaling-stroke; }
