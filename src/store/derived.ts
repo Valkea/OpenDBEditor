@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { diffSchemas } from '../analysis/diff';
 import { hopDistances, shortestPath } from '../analysis/graph';
 import { lintSchema } from '../analysis/lint';
-import { hiddenRelations, useStore } from './store';
+import { portalHubs, useStore, type Hub } from './store';
 
 export function useIssues() {
   const schema = useStore((s) => s.schema);
@@ -17,12 +17,20 @@ export function useDiff() {
   return useMemo(() => (base ? diffSchemas(base.schema, schema) : null), [schema, base]);
 }
 
-export function useHidden() {
+/** Portal hubs of the Atlas view (none elsewhere), keyed by table id. */
+export function useHubs() {
   const schema = useStore((s) => s.schema);
   const portals = useStore((s) => s.portals);
   const threshold = useStore((s) => s.hubThreshold);
   const view = schema.view ?? 'atlas';
-  return useMemo(() => (view === 'atlas' ? hiddenRelations(schema, portals, threshold) : new Set<string>()), [schema, portals, threshold, view]);
+  return useMemo(() => (view === 'atlas' ? portalHubs(schema, portals, threshold) : new Map<string, Hub>()), [schema, portals, threshold, view]);
+}
+
+/** Relations drawn as portals rather than lines. */
+export function useHidden() {
+  const schema = useStore((s) => s.schema);
+  const hubs = useHubs();
+  return useMemo(() => new Set(schema.relations.filter((r) => hubs.has(r.to.table)).map((r) => r.id)), [schema, hubs]);
 }
 
 export function usePath() {

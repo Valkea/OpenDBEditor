@@ -11,7 +11,7 @@ interface TableMeta {
   c?: string;
   l?: 1;
   s?: TableStatus;
-  p?: 1;
+  p?: 0 | 1;
 }
 
 interface LayoutMeta {
@@ -42,7 +42,7 @@ export function encodeLayout(schema: Schema): string {
     if (t.color) m.c = t.color;
     if (t.locked) m.l = 1;
     if (t.status) m.s = t.status;
-    if (t.portal) m.p = 1;
+    if (t.portal !== undefined) m.p = t.portal ? 1 : 0;
     meta.t[key(t.name, t.schema)] = m;
   }
   return packJson(meta);
@@ -71,7 +71,7 @@ export function applyLayout(schema: Schema, blob: string): boolean {
     if (m.c) t.color = m.c;
     if (m.l) t.locked = true;
     if (m.s) t.status = m.s;
-    if (m.p) t.portal = true;
+    if (m.p !== undefined) t.portal = !!m.p;
     placed = true;
   }
   schema.notes = (meta.notes ?? []).map(({ a, ...n }) => ({ ...n, attachedTo: a ? byKey.get(a)?.id : undefined }));

@@ -1,10 +1,11 @@
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
-import { KeyRound, Link2, Lock, MessageSquareText, Waypoints } from 'lucide-react';
+import { KeyRound, Link2, Lock, MessageSquareText } from 'lucide-react';
 import { memo } from 'react';
 import type { ChangeKind } from '../../analysis/diff';
 import type { Schema, Table } from '../../model/types';
 import { CARD_W, cardHeight, type Detail, visibleColumns } from '../../layout/geometry';
 import { baseTypeName, extensionForType } from '../../sql/pg';
+import type { Hub } from '../../store/store';
 
 export interface TableNodeData extends Record<string, unknown> {
   table: Table;
@@ -12,8 +13,10 @@ export interface TableNodeData extends Record<string, unknown> {
   detail: Detail;
   groupColor?: string;
   fkCols: Set<string>;
-  /** FK column id → referenced table name, when that relation is drawn as a portal. */
-  portals: Map<string, { name: string; id: string }>;
+  /** FK column id → the hub it references, when that relation is drawn as a portal. */
+  portals: Map<string, Hub>;
+  /** Set when this table is itself a portal hub. */
+  hub?: Hub;
   enumNames: Set<string>;
   faded?: boolean;
   lit?: boolean;
@@ -22,7 +25,56 @@ export interface TableNodeData extends Record<string, unknown> {
   removedCols?: number;
   issues?: { errors: number; warnings: number; infos: number };
   selectedColumn?: string;
-  onPortal?: (tableId: string) => void;
+  /** Go through a portal: fly from this table to the hub. */
+  onPortal?: (hubId: string, fromId: string) => void;
+  /** Visit the hub's referrers one by one. */
+  onHubVisit?: (hubId: string) => void;
+  /** Hovering a hub mark shows its hidden lines (null when the pointer leaves). */
+  onHubHover?: (hubId: string | null) => void;
+}
+
+const hubStyle = (h: Hub) => ({ ['--hub' as string]: h.color }) as React.CSSProperties;
+
+/** The hub's own mark: its glyph and how many tables reach it through portals. */
+function HubBadge({ hub, data, big }: { hub: Hub; data: TableNodeData; big?: boolean }) {
+  const n = hub.referrers.length;
+  return (
+    <button
+      className={`hub-badge nodrag ${big ? 'is-big' : ''}`}
+      style={hubStyle(hub)}
+      title={`Portal hub: ${n} table${n === 1 ? '' : 's'} reference ${hub.name} through ${hub.glyph} chips. Hover to see the lines, click to visit them one by one.`}
+      onMouseEnter={() => data.onHubHover?.(hub.id)}
+      onMouseLeave={() => data.onHubHover?.(null)}
+      onClick={(e) => {
+        e.stopPropagation();
+        data.onHubVisit?.(hub.id);
+      }}
+    >
+      <span className="hub-glyph">{hub.glyph}</span>
+      {n}
+      <span className="hub-in">←</span>
+    </button>
+  );
+}
+
+/** A way through a portal to a hub, wearing the hub's mark. */
+function PortalChip({ hub, data, stub }: { hub: Hub; data: TableNodeData; stub?: boolean }) {
+  return (
+    <button
+      className={`${stub ? 'portal-stub' : 'portal-chip'} nodrag`}
+      style={hubStyle(hub)}
+      title={`References ${hub.name} through a portal. Hover to see the line, click to fly there.`}
+      onMouseEnter={() => data.onHubHover?.(hub.id)}
+      onMouseLeave={() => data.onHubHover?.(null)}
+      onClick={(e) => {
+        e.stopPropagation();
+        data.onPortal?.(hub.id, data.table.id);
+      }}
+    >
+      <span className="hub-glyph">{hub.glyph}</span>
+      {!stub && hub.name}
+    </button>
+  );
 }
 
 export type TableNodeType = Node<TableNodeData, 'table'>;
@@ -56,7 +108,7 @@ function GhostHandles({ columns }: { columns: { id: string }[] }) {
 }
 
 function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
-  const { table, schema, detail, groupColor, fkCols, portals, enumNames, faded, lit, diff, colDiff, issues, selectedColumn, removedCols } = data;
+  const { table, schema, detail, groupColor, fkCols, portals, hub, enumNames, faded, lit, diff, colDiff, issues, selectedColumn, removedCols } = data;
   const cols = visibleColumns(table, schema, detail);
   const hidden = table.columns.length - cols.length;
   const accent = table.color ?? groupColor ?? 'var(--accent)';
@@ -83,6 +135,14 @@ function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
           </span>
           {table.locked && <Lock size={28} className="tblock-lock" />}
         </div>
+        {(hub || portals.size > 0) && (
+          <div className="tblock-portals">
+            {hub && <HubBadge hub={hub} data={data} big />}
+            {[...new Map([...portals.values()].map((h) => [h.id, h])).values()].map((h) => (
+              <PortalChip key={h.id} hub={h} data={data} stub />
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -105,7 +165,7 @@ function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
           {issues && issues.errors > 0 && <span className="badge badge-err" title="Schema errors">{issues.errors}</span>}
           {issues && issues.warnings > 0 && <span className="badge badge-warn" title="Schema warnings">{issues.warnings}</span>}
           {issues && issues.infos > 0 && <span className="badge" title="Schema hints">{issues.infos}</span>}
-          {table.portal && <Waypoints size={12} className="muted" aria-label="portal" />}
+          {hub && <HubBadge hub={hub} data={data} />}
           {table.locked && <Lock size={12} className="muted" aria-label="locked" />}
         </span>
       </header>
@@ -133,18 +193,7 @@ function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
                 </span>
                 <span className={`tname ${c.nullable ? '' : 'is-nn'}`}>{c.name}</span>
                 {c.comment && <MessageSquareText size={11} className="tcomment-ico" />}
-                {portal && (
-                  <button
-                    className="portal-chip nodrag"
-                    title={`References ${portal.name} — click to fly there`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      data.onPortal?.(portal.id);
-                    }}
-                  >
-                    ↗ {portal.name}
-                  </button>
-                )}
+                {portal && <PortalChip hub={portal} data={data} />}
                 <span className="tflags">
                   {c.unique && !c.pk && <span title="UNIQUE">U</span>}
                   {c.default !== undefined && <span title={`DEFAULT ${c.default}`}>D</span>}

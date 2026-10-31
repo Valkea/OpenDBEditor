@@ -114,15 +114,40 @@ function readTheme(): 'dark' | 'light' {
   return 'dark'; // dark unless the user picked light with the toggle
 }
 
-export function hiddenRelations(schema: Schema, portals: boolean, threshold: number): Set<string> {
-  const hidden = new Set<string>();
+/** A table whose inbound references are drawn as portals, with the mark its chips wear. */
+export interface Hub {
+  id: string;
+  name: string;
+  color: string;
+  glyph: string;
+  /** Tables referencing it, in schema order (itself excluded). */
+  referrers: string[];
+}
+
+/** With a colour, tells hubs apart: 10 colours × 8 glyphs give 40 distinct marks. */
+const HUB_GLYPHS = ['◆', '●', '▲', '■', '★', '⬟', '▼', '✚'];
+
+/** Portal hubs: tables set to always, plus (with portals on) the busy ones not set to never. */
+export function portalHubs(schema: Schema, portals: boolean, threshold: number): Map<string, Hub> {
   const deg = inDegree(schema);
-  for (const r of schema.relations) {
-    const target = schema.tables.find((t) => t.id === r.to.table);
-    if (!target) continue;
-    if (target.portal || (portals && (deg.get(target.id) ?? 0) >= threshold)) hidden.add(r.id);
+  const hubs = new Map<string, Hub>();
+  for (const t of schema.tables) {
+    if (!(t.portal === true || (t.portal !== false && portals && (deg.get(t.id) ?? 0) >= threshold))) continue;
+    const i = hubs.size;
+    hubs.set(t.id, { id: t.id, name: t.name, color: paletteColor(i), glyph: HUB_GLYPHS[i % HUB_GLYPHS.length], referrers: [] });
   }
-  return hidden;
+  const order = new Map(schema.tables.map((t, i) => [t.id, i]));
+  for (const r of schema.relations) {
+    const h = hubs.get(r.to.table);
+    if (h && r.from.table !== h.id && !h.referrers.includes(r.from.table)) h.referrers.push(r.from.table);
+  }
+  for (const h of hubs.values()) h.referrers.sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
+  return hubs;
+}
+
+export function hiddenRelations(schema: Schema, portals: boolean, threshold: number): Set<string> {
+  const hubs = portalHubs(schema, portals, threshold);
+  return new Set(schema.relations.filter((r) => hubs.has(r.to.table)).map((r) => r.id));
 }
 
 export const useStore = create<State>((set, get) => ({

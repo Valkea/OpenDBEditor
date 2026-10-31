@@ -128,6 +128,7 @@ export function CanvasToolbar({ moveLocked, onMoveLocked, snap, onSnap }: { move
   const view = useStore((s) => s.schema.view ?? 'atlas');
   const focus = useStore((s) => s.focus);
   const portals = useStore((s) => s.portals);
+  const hubThreshold = useStore((s) => s.hubThreshold);
   const st = useStore.getState;
   const layout = view !== 'constellation';
   return (
@@ -174,7 +175,7 @@ export function CanvasToolbar({ moveLocked, onMoveLocked, snap, onSnap }: { move
           )}
         </div>
         {view === 'atlas' && (
-          <button className={`tb-btn ${portals ? 'is-on' : ''}`} title="Portals: references to hub tables (≥5 inbound FKs) become chips instead of long lines" onClick={() => st().set({ portals: !portals })}>
+          <button className={`tb-btn ${portals ? 'is-on' : ''}`} title={`Portals: references to busy tables (≥${hubThreshold} inbound foreign keys) become chips wearing the table's mark instead of long lines. Set a table to always or never in its inspector.`} onClick={() => st().set({ portals: !portals })}>
             <Waypoints size={15} />
             <span className="tb-label">Portals</span>
           </button>

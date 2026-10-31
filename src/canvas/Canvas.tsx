@@ -24,9 +24,9 @@ import { regionFrame, routeSchema } from '../layout/routing';
 import { uid } from '../model/ids';
 import type { Schema } from '../model/types';
 import { canonicalType, isSerial } from '../sql/pg';
-import { lensEnabled, useDiff, useHidden, useIssues, useLens, usePath } from '../store/derived';
-import { Lock, Map as MapIcon, X } from 'lucide-react';
-import { useStore } from '../store/store';
+import { lensEnabled, useDiff, useHidden, useHubs, useIssues, useLens, usePath } from '../store/derived';
+import { CornerUpLeft, Lock, Map as MapIcon, X } from 'lucide-react';
+import { useStore, type Hub } from '../store/store';
 import { useIsPhone } from '../util/phone';
 import { ArcEdge, BundleEdge, NoteLinkEdge, RelationEdge } from './edges/RelationEdge';
 import { NoteNode } from './nodes/NoteNode';
@@ -165,6 +165,7 @@ export function Canvas() {
   const farZoom = useFlowStore(overviewSelector);
   const overview = view === 'atlas' && farZoom && schema.groups.length > 0;
   const hidden = useHidden();
+  const hubs = useHubs();
   const issues = useIssues();
   const diff = useDiff();
   const path = usePath();
@@ -177,6 +178,9 @@ export function Canvas() {
   const hover = exporting ? null : liveHover;
   const hoverEdge = exporting ? null : liveHoverEdge;
   const hoverRegion = exporting ? null : liveHoverRegion;
+  // a hovered hub mark (badge, chip or stub) draws that hub's portal relations as ghost lines
+  const [liveHubHover, setHubHover] = useState<string | null>(null);
+  const hubHover = exporting ? null : liveHubHover;
   // The lens jumps to a hovered table at once, but holds on to the last one for a moment
   // while the pointer crosses the gap to the next, so it doesn't flash back in between.
   const [heldHover, setHeldHover] = useState<string | null>(null);
@@ -223,6 +227,34 @@ export function Canvas() {
       useStore.getState().select({ kind: 'table', id });
     },
     [rf],
+  );
+
+  // Going through a portal (or visiting a hub's referrers) leaves a way back to where you were.
+  const [back, setBack] = useState<{ id: string; name: string } | null>(null);
+  useEffect(() => setBack(null), [view]);
+  const visits = useRef(new Map<string, number>());
+  const goThrough = useCallback(
+    (hubId: string, fromId: string) => {
+      const from = useStore.getState().schema.tables.find((t) => t.id === fromId);
+      if (from) setBack({ id: from.id, name: from.name });
+      setHubHover(null);
+      flyTo(hubId);
+    },
+    [flyTo],
+  );
+  const hubsRef = useRef(hubs);
+  hubsRef.current = hubs;
+  const visitHub = useCallback(
+    (hubId: string) => {
+      const h = hubsRef.current.get(hubId);
+      if (!h?.referrers.length) return;
+      const i = (visits.current.get(hubId) ?? -1) + 1;
+      visits.current.set(hubId, i % h.referrers.length);
+      setBack({ id: h.id, name: h.name });
+      setHubHover(null);
+      flyTo(h.referrers[i % h.referrers.length]);
+    },
+    [flyTo],
   );
 
   // Orthogonal routes for every drawn relation (cards are obstacles, shared corridors become lanes).
@@ -360,13 +392,12 @@ export function Canvas() {
     const fkCols = new Set<string>();
     for (const r of schema.relations) r.from.columns.forEach((c) => fkCols.add(c));
     const enumNames = new Set(schema.enums.map((e) => e.name));
-    const portalsByTable = new Map<string, Map<string, { name: string; id: string }>>();
+    const portalsByTable = new Map<string, Map<string, Hub>>();
     for (const r of schema.relations) {
-      if (!hidden.has(r.id)) continue;
-      const target = schema.tables.find((t) => t.id === r.to.table);
-      if (!target) continue;
+      const hub = hubs.get(r.to.table);
+      if (!hub) continue;
       if (!portalsByTable.has(r.from.table)) portalsByTable.set(r.from.table, new Map());
-      portalsByTable.get(r.from.table)!.set(r.from.columns[0], { name: target.name, id: target.id });
+      portalsByTable.get(r.from.table)!.set(r.from.columns[0], hub);
     }
     const removedCols = new Map<string, number>();
     if (diff) for (const d of diff.tables) if (d.current) removedCols.set(d.current.id, d.columns.filter((c) => c.kind === 'removed').length);
@@ -384,6 +415,7 @@ export function Canvas() {
           groupColor: g?.color,
           fkCols,
           portals: portalsByTable.get(t.id) ?? new Map(),
+          hub: hubs.get(t.id),
           enumNames,
           faded: isFaded(t.id),
           lit: !!path?.rels && path.tables.has(t.id),
@@ -392,7 +424,9 @@ export function Canvas() {
           removedCols: removedCols.get(t.id),
           issues: issueCount.get(t.id),
           selectedColumn: selection?.kind === 'table' && selection.id === t.id ? selection.columnId : undefined,
-          onPortal: flyTo,
+          onPortal: goThrough,
+          onHubVisit: visitHub,
+          onHubHover: setHubHover,
         },
         selected: selection?.kind === 'table' && selection.id === t.id,
         draggable: !t.locked,
@@ -413,7 +447,7 @@ export function Canvas() {
       });
     }
     return out;
-  }, [schema, view, detail, selection, hidden, diff, issueCount, path, lens, lensHover, measured, flyTo, starPos, starFocus, orbit, highlight, overview, bundles, hoverRegion]);
+  }, [schema, view, detail, selection, hidden, diff, issueCount, path, lens, lensHover, measured, goThrough, visitHub, hubs, starPos, starFocus, orbit, highlight, overview, bundles, hoverRegion]);
   // the move lock overrides each node's own draggable flag (which only reflects per-table locks)
   const shownNodes = useMemo(() => (moveLocked && view !== 'constellation' ? nodes.map((n) => (n.draggable === false ? n : { ...n, draggable: false })) : nodes), [nodes, moveLocked, view]);
 
@@ -476,14 +510,16 @@ export function Canvas() {
     }
 
     for (const r of schema.relations) {
-      if (hidden.has(r.id)) continue;
+      // a portal relation is drawn only while its hub's mark is hovered, as a ghost line
+      const ghost = hidden.has(r.id) ? hubs.get(r.to.table) : undefined;
+      if (hidden.has(r.id) && (!ghost || ghost.id !== hubHover)) continue;
       const f = byId.get(r.from.table);
       const t = byId.get(r.to.table);
       if (!f || !t) continue;
       const fc = f.columns.find((c) => c.id === r.from.columns[0]);
       const tc = t.columns.find((c) => c.id === r.to.columns[0]);
       if (!fc || !tc) continue;
-      const route = routes?.get(r.id);
+      const route = ghost ? undefined : routes?.get(r.id);
       const dx = t.x + CARD_W / 2 - (f.x + CARD_W / 2);
       const fs = route?.srcSide ?? (dx >= 0 ? 'R' : 'L');
       const ts = route?.dstSide ?? (dx >= 0 ? 'L' : 'R');
@@ -513,10 +549,12 @@ export function Canvas() {
           points: route?.points,
           path: onPath,
           diff: diff?.relationStatus.get(r.id) === 'added' ? 'added' : undefined,
-          color: view === 'atlas' ? g?.color : undefined,
+          color: ghost ? ghost.color : view === 'atlas' ? g?.color : undefined,
           blueprint: view === 'blueprint',
+          ghost: !!ghost,
         },
-        zIndex: onPath || lit ? 2 : 0,
+        zIndex: onPath || lit || ghost ? 2 : 0,
+        ...(ghost && { selectable: false, focusable: false }),
       });
     }
     for (const n of schema.notes) {
@@ -526,7 +564,7 @@ export function Canvas() {
       out.push({ id: `nl:${n.id}`, source: `note:${n.id}`, sourceHandle: 'n', target: n.attachedTo, targetHandle: side, type: 'notelink', selectable: false, focusable: false });
     }
     return out;
-  }, [schema, view, hidden, path, lens, selection, detail, diff, highlight, routes, hoverEdge, bundles, hoverRegion]);
+  }, [schema, view, hidden, path, lens, selection, detail, diff, highlight, routes, hoverEdge, bundles, hoverRegion, hubs, hubHover]);
 
   // Handles move without the card changing size (detail level, view, column edits),
   // which React Flow's resize observer can't see — re-measure them explicitly.
@@ -765,6 +803,26 @@ export function Canvas() {
           </ControlButton>
         </Controls>
       </ReactFlow>
+      {back && view === 'atlas' && (
+        <div className="back-pill" role="status">
+          <button
+            className="back-pill-go"
+            title={`Fly back to ${back.name}`}
+            onClick={() => {
+              flyTo(back.id);
+              setBack(null);
+            }}
+          >
+            <CornerUpLeft size={14} />
+            <span>
+              Back to <b>{back.name}</b>
+            </span>
+          </button>
+          <button className="icon-btn" title="Dismiss" onClick={() => setBack(null)}>
+            <X size={14} />
+          </button>
+        </div>
+      )}
       {showLockHint && (
         <div className="lock-hint" role="status">
           <Lock size={14} />

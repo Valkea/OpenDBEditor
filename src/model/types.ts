@@ -55,7 +55,7 @@ export interface Table {
   color?: string;
   locked?: boolean;
   status?: TableStatus;
-  /** Show inbound relations as portal chips instead of lines (Atlas view). */
+  /** Draw inbound relations as portal chips instead of lines (Atlas view): true always, false never, unset when busy enough and portals are on. */
   portal?: boolean;
 }
 

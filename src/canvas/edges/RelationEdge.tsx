@@ -17,6 +17,8 @@ export interface RelationEdgeData extends Record<string, unknown> {
   /** Pushed back while something else has focus. */
   dim?: boolean;
   hover?: boolean;
+  /** A portal relation shown for a moment while its hub's mark is hovered. */
+  ghost?: boolean;
 }
 
 export type RelationEdgeType = Edge<RelationEdgeData, 'relation'>;
@@ -93,6 +95,7 @@ function RelationEdgeImpl(props: EdgeProps<RelationEdgeType>) {
     data?.dim && 'is-dim',
     data?.lit && 'is-lit',
     data?.hover && 'is-hover',
+    data?.ghost && 'is-ghost',
     data?.path && 'is-path',
     data?.diff && `diff-${data.diff}`,
     data?.onDelete === 'CASCADE' && 'is-cascade',

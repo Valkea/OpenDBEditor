@@ -10,7 +10,6 @@ import {
   LockOpen,
   StickyNote,
   Trash2,
-  Waypoints,
   X,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -181,6 +180,7 @@ function TableInspector({ id, columnId }: { id: string; columnId?: string }) {
     listRef.current?.querySelector(`[data-ins-col="${columnId}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [columnId]);
 
+  const hubThreshold = useStore((s) => s.hubThreshold);
   const upd = (fn: (t: Table, d: Schema) => void, key?: string) =>
     commit((d) => {
       const t = d.tables.find((x) => x.id === id);
@@ -311,9 +311,18 @@ function TableInspector({ id, columnId }: { id: string; columnId?: string }) {
           <button className={`toggle ${table.locked ? 'is-on' : ''}`} title="Lock position (auto-layout won't move it)" onClick={() => upd((t) => void (t.locked = !t.locked || undefined))}>
             {table.locked ? <Lock size={14} /> : <LockOpen size={14} />}
           </button>
-          <button className={`toggle ${table.portal ? 'is-on' : ''}`} title="Portal: show references to this table as chips instead of lines" onClick={() => upd((t) => void (t.portal = !t.portal || undefined))}>
-            <Waypoints size={14} />
-          </button>
+        </div>
+        <div className="row">
+          <select
+            className="input grow"
+            title="Portal: references to this table become chips wearing its mark instead of lines (Atlas view)"
+            value={table.portal === undefined ? '' : table.portal ? 'always' : 'never'}
+            onChange={(e) => upd((t) => void (t.portal = e.target.value === '' ? undefined : e.target.value === 'always'))}
+          >
+            <option value="">portal: auto (≥{hubThreshold} refs)</option>
+            <option value="always">portal: always</option>
+            <option value="never">portal: never</option>
+          </select>
         </div>
         <div className="swatches">
           <button className={`swatch ${!table.color ? 'is-on' : ''}`} style={{ background: 'transparent' }} title="Group colour" onClick={() => upd((t) => void (t.color = undefined))}>

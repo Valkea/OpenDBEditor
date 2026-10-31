@@ -517,12 +517,37 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 .ttype-enum { color: var(--enum); background: color-mix(in srgb, var(--enum) 11%, transparent); padding: 1px 6px; border-radius: 5px; font-size: 10.5px; }
 .ttype-ext { color: var(--ext); background: color-mix(in srgb, var(--ext) 11%, transparent); padding: 1px 6px; border-radius: 5px; }
 .trow-more { color: var(--text-faint); font-size: 11.5px; padding-left: 33px; font-style: italic; }
-.portal-chip {
-  border: 1px dashed color-mix(in srgb, var(--card-accent) 60%, transparent); background: transparent; color: var(--card-accent);
-  font-size: 10.5px; font-family: var(--mono); padding: 0 6px; height: 18px; border-radius: 99px; cursor: pointer; flex-shrink: 0;
-  max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.portal-chip, .hub-badge, .portal-stub {
+  display: inline-flex; align-items: center; gap: 4px; cursor: pointer; flex-shrink: 0; white-space: nowrap; font-family: var(--mono);
+  color: var(--hub); background: color-mix(in srgb, var(--hub) 14%, transparent); border: 1px solid color-mix(in srgb, var(--hub) 55%, transparent);
+  transition: background .15s, box-shadow .15s;
 }
-.portal-chip:hover { background: color-mix(in srgb, var(--card-accent) 15%, transparent); border-style: solid; }
+.portal-chip:hover, .hub-badge:hover, .portal-stub:hover { background: color-mix(in srgb, var(--hub) 28%, transparent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--hub) 30%, transparent); }
+.hub-glyph { font-size: .95em; line-height: 1; }
+/* a chip leads to a hub: its mark, then the hub's name */
+.portal-chip { font-size: 10.5px; padding: 0 7px 0 5px; height: 18px; border-radius: 99px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+/* the hub wears its mark in the header, with how many tables reach it */
+.hub-badge { font-size: 11px; font-weight: 650; padding: 0 6px; height: 18px; border-radius: 6px; }
+.hub-in { opacity: .7; font-weight: 400; }
+/* zoomed out: the marks stay readable along the block's bottom edge */
+.tblock-portals { position: absolute; left: 18px; right: 18px; top: calc(100% - 13px); display: flex; gap: 8px; z-index: 1; }
+.tblock-portals > * { background: color-mix(in srgb, var(--hub) 22%, var(--card)); }
+.portal-stub { font-size: 26px; width: 42px; height: 42px; justify-content: center; border-radius: 12px; border-width: 2px; }
+.hub-badge.is-big { font-size: 24px; height: 42px; padding: 0 12px; border-radius: 12px; border-width: 2px; gap: 6px; }
+/* way back after going through a portal */
+.back-pill {
+  position: absolute; left: 50%; top: 14px; transform: translateX(-50%); z-index: 12; display: flex; align-items: center; gap: 2px;
+  padding: 3px 4px 3px 3px; border-radius: 99px; background: var(--panel-solid); border: 1px solid var(--line-strong); box-shadow: 0 8px 22px rgba(0, 0, 0, .25);
+  animation: fadeIn .25s var(--ease); max-width: calc(100% - 24px);
+}
+.back-pill-go {
+  display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px; border-radius: 99px; border: 0; background: transparent; color: var(--text-dim);
+  font-size: 12.5px; cursor: pointer; min-width: 0;
+}
+.back-pill-go span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.back-pill-go:hover { background: var(--hover); color: var(--text); }
+.back-pill-go b { color: var(--text); font-family: var(--mono); font-weight: 600; }
+@media (max-width: 640px) { .back-pill { top: auto; bottom: 64px; } }
 /* zoomed-out "map" mode: each table is a block of its real footprint, labelled in large type */
 .tcard-compact { background: color-mix(in srgb, var(--card-accent) 14%, var(--card)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--card-accent) 45%, transparent); border-radius: 16px; }
 .tblock { position: absolute; inset: 0; padding: 22px 24px; display: flex; flex-direction: column; justify-content: center; gap: 10px; overflow: hidden; }
@@ -589,6 +614,10 @@ textarea.input { height: auto; padding: 7px 9px; resize: vertical; line-height: 
 .rel.is-path .rel-line { stroke: var(--accent); stroke-width: 3; opacity: 1; }
 .rel.is-path .rel-glyph { stroke: var(--accent); opacity: 1; }
 .rel.diff-added .rel-line, .rel.diff-added .rel-glyph { stroke: var(--ok); opacity: 1; }
+/* a portal relation, shown while its hub's mark is hovered */
+.rel.is-ghost .rel-line { stroke-dasharray: 6 5; stroke-width: 2; opacity: .95; animation: fadeIn .2s var(--ease); }
+.rel.is-ghost .rel-glyph { stroke: var(--rel); opacity: .95; }
+.rel.is-ghost { opacity: 1 !important; pointer-events: none; }
 .rel-flow { fill: none; stroke: white; stroke-width: 2; stroke-dasharray: 2 14; stroke-linecap: round; opacity: .9; animation: flow 1s linear infinite; pointer-events: none; }
 @keyframes flow { to { stroke-dashoffset: -16; } }
 .rel-label {
