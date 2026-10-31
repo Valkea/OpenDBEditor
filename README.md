@@ -15,7 +15,7 @@ as an atlas of domains, a precise blueprint, or a constellation to explore.
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?logo=typescript&logoColor=white)
 ![React 19](https://img.shields.io/badge/React-19-149eca?logo=react&logoColor=white)
 
-<img src="public/medias/atlas.png" alt="The Atlas view: three groups of tables drawn as tinted islands, with the table list on the left" width="100%">
+<img src="public/medias/atlas-keys.png" alt="The Atlas view: three groups of tables drawn as tinted islands, linked by their foreign keys" width="100%">
 
 </div>
 
@@ -80,15 +80,25 @@ Switch views with <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd>, or the switcher at the
 
 ### 🗺️ Atlas: the map of your domains
 
-Groups become tinted islands. Zoom out to see each table as a block with its name in large type;
-zoom in to see key columns, then every column with its type, default, check and comment.
+Groups become tinted islands, and the detail follows the zoom:
+
+| Close up | Zoomed out | Far away |
+| --- | --- | --- |
+| Every column with its type, default, check and comment | Each table is a block with its name in large type, its column count and its warnings | Only the groups, with their table count and the links between them |
+
+<img src="public/medias/atlas-full.png" alt="Atlas zoomed in on the Books group: every column with its type, default and comment" width="100%">
+<p align="center"><sub>Close up</sub></p>
+
+<img src="public/medias/atlas-compact.png" alt="Atlas zoomed out: each table is a block with its name in large type, column count and warnings" width="100%">
+<p align="center"><sub>Zoomed out</sub></p>
+
+<p align="center"><img src="public/medias/atlas-overview.png" alt="Atlas far away: the Books, Customers and Book Categories groups as blocks, with the number of foreign keys between them"></p>
+<p align="center"><sub>Far away</sub></p>
 
 When a lookup table is referenced from everywhere, its lines cross the whole map. Turn on
 **Portals** and those references become small chips instead: the hub table gets a coloured mark,
 and every chip that leads to it has the same mark. Hover the mark to draw its lines, click a chip
 to fly there.
-
-<img src="public/medias/portals.png" alt="The Atlas view with Portals on: countries is a hub marked with 5, and hovering its mark draws dashed lines to the five tables that reference it" width="100%">
 
 ### 📐 Blueprint: the precise diagram
 
