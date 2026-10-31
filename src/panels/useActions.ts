@@ -32,7 +32,7 @@ export async function exportPng(rf: ReturnType<typeof useReactFlow>, theme: stri
   const canvas = document.querySelector('.canvas') as HTMLElement;
   const el = document.querySelector('.react-flow__viewport') as HTMLElement;
   if (!canvas || !el || !rf.getNodes().length) return;
-  // draw everything at full detail (whatever the zoom), without selection or hover, then let the cards and links settle
+  // draw without selection or hover (and at full detail outside Atlas), then let the cards and links settle
   useStore.setState({ exporting: true });
   let restore = () => {};
   try {

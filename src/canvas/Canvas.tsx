@@ -156,12 +156,14 @@ export function Canvas() {
   const margin = phone ? 8 : 14;
   const MINI_ZOOM_W = 98; // four 24px buttons + borders, as rendered
   const zoomDetail = useFlowStore(detailSelector);
-  const detail: Detail = view === 'blueprint' || exporting ? 'full' : zoomDetail;
+  // Atlas exports what the zoom shows (full cards, compact cards or the group overview), never the partial "+ n more" cards;
+  // the other views export full cards
+  const detail: Detail = view === 'blueprint' || (exporting && (view !== 'atlas' || zoomDetail === 'keys')) ? 'full' : zoomDetail;
   useEffect(() => {
     if (!exporting) useStore.setState({ viewDetail: detail });
   }, [detail, exporting]);
   const farZoom = useFlowStore(overviewSelector);
-  const overview = view === 'atlas' && farZoom && !exporting && schema.groups.length > 0;
+  const overview = view === 'atlas' && farZoom && schema.groups.length > 0;
   const hidden = useHidden();
   const issues = useIssues();
   const diff = useDiff();
