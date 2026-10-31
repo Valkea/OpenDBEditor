@@ -38,8 +38,8 @@ function offline(): Plugin {
         fileName: 'manifest.webmanifest',
         source: JSON.stringify(
           {
-            name: 'OpenDB Editor',
-            short_name: 'OpenDB',
+            name: 'Asterion',
+            short_name: 'Asterion',
             description: 'PostgreSQL schema designer that runs entirely in your browser, offline.',
             start_url: './',
             scope: './',

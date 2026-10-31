@@ -1,8 +1,8 @@
-# OpenDB Editor
+# Asterion
 
 A PostgreSQL schema designer that runs entirely in the browser.
 
-**Use it: <https://valkea.github.io/OpenDBEditor/>** (deployed from `main` on every push).
+**Use it: <https://valkea.github.io/Asterion/>** (deployed from `main` on every push).
 
 - **Nothing leaves your browser.** SQL is parsed, analysed and drawn on your device. There is no
   backend: the app is a set of static files, and the production build ships a Content-Security-Policy
