@@ -266,6 +266,16 @@ export function refineBlocks(schema: Schema, start: Map<string, Pos>, hidden: Se
         removeBlockOverlaps(schema, p, () => false);
       });
     }
+  /** Whether the group holding `id` now reaches into another block's frame (moves inside a group only check cards). */
+  const intrudes = (p: Map<string, Pos>, id: string) => {
+    const mine = list.find((b) => b.includes(id)) ?? [id];
+    const m = bounds(mine, schema, p);
+    return [...blocks.values()].some((b) => {
+      if (b === mine) return false;
+      const o = bounds(b, schema, p);
+      return m.x < o.x + o.w && o.x < m.x + m.w && m.y < o.y + o.h && o.y < m.y + m.h;
+    });
+  };
   // swap two tables of one group, when their cards fit each other's spot
   const overlapsAny = (p: Map<string, Pos>, id: string) => {
     const a = p.get(id)!;
@@ -290,7 +300,7 @@ export function refineBlocks(schema: Schema, start: Map<string, Pos>, hidden: Se
           [pa.x, pb.x] = [pb.x, pa.x];
           pa.y = yb - heightOf.get(a)! / 2;
           pb.y = ya - heightOf.get(b)! / 2;
-          if (overlapsAny(p, a) || overlapsAny(p, b)) p.clear();
+          if (overlapsAny(p, a) || overlapsAny(p, b) || intrudes(p, a)) p.clear();
         });
       }
   // slide a table toward its group's centre, or a block toward the drawing's centre, until it touches something
@@ -366,6 +376,7 @@ export function refineBlocks(schema: Schema, start: Map<string, Pos>, hidden: Se
         }
         if (!best) return p.clear();
         p.set(id, best.at);
+        if (intrudes(p, id)) p.clear();
       });
   }
   for (const ids of list)
