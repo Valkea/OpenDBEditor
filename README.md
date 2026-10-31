@@ -76,7 +76,8 @@ copy or download.
 
 ## Three ways to look at a schema
 
-Switch views with <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd>, or the switcher at the top of the screen.
+Switch views with <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd>, or the switcher at the top of the screen. Every view comes
+in a dark and a light theme: switch with the button at the bottom left.
 
 ### 🗺️ Atlas: the map of your domains
 
@@ -105,16 +106,7 @@ to fly there.
 A classic entity-relationship diagram (ERD) with crow's-foot notation on drafting paper: every
 column, every key. Use it to print or export.
 
-<table>
-  <tr>
-    <td><img src="public/medias/blueprint.png" alt="The Blueprint view in the dark theme"></td>
-    <td><img src="public/medias/blueprint-light.png" alt="The Blueprint view in the light theme"></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>Dark theme</sub></td>
-    <td align="center"><sub>Light theme</sub></td>
-  </tr>
-</table>
+<img src="public/medias/blueprint.png" alt="The Blueprint view: every table with all its columns on dark drafting paper, with crow's-foot lines" width="100%">
 
 ### ✨ Constellation: explore the connections
 
