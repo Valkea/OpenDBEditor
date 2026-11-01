@@ -93,18 +93,14 @@ in a dark and a light theme: switch with the button at the bottom left.
 
 Groups become tinted islands, and the detail follows the zoom:
 
-| Close up | Zoomed out | Far away |
-| --- | --- | --- |
-| Every column with its type, default, check and comment | Each table is a block with its name in large type, its column count and its warnings | Only the groups, with their table count and the links between them |
-
+<p align="center"><br><sub>Close up > Every column with its type, default, check and comment</sub></p>
 <img src="public/medias/atlas-full.png" alt="Atlas zoomed in on the Books group: every column with its type, default and comment" width="100%">
-<p align="center"><sub>Close up</sub></p>
 
+<p align="center"><br><sub>Middle > Each table is a block with its name in large type, its column count and its warnings</sub></p>
 <img src="public/medias/atlas-compact.png" alt="Atlas zoomed out: each table is a block with its name in large type, column count and warnings" width="100%">
-<p align="center"><sub>Zoomed out</sub></p>
 
+<p align="center"><br><sub>Zoom out > Only the groups, with their table count and the links between them</sub></p>
 <p align="center"><img src="public/medias/atlas-overview.png" alt="Atlas far away: the Books, Customers and Book Categories groups as blocks, with the number of foreign keys between them"></p>
-<p align="center"><sub>Far away</sub></p>
 
 When a lookup table is referenced from everywhere, its lines cross the whole map. Turn on
 **Portals** and those references become small chips instead: the hub table gets a coloured mark,
